@@ -244,3 +244,7 @@ export async function syncVehicleReminders(
     "high"
   );
 }
+
+// Convenient alias for report generator and search service
+export const calculateVehicleStatus = calculateVehicleAlerts;
+

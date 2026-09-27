@@ -23,9 +23,11 @@ export const DESKTOP_NAV_ITEMS: NavItem[] = [
   { label: "Documents & Expiries", href: "/documents", iconName: "FileText" },
   { label: "Reminders & Tasks", href: "/reminders", iconName: "Bell" },
   { label: "Finance & Bills", href: "/finance", iconName: "Wallet" },
+  { label: "Reports & Analytics", href: "/reports", iconName: "BarChart3" },
   { label: "Subscriptions", href: "/subscriptions", iconName: "RefreshCw" },
   { label: "Vehicles & Assets", href: "/more/vehicles", iconName: "Car" },
   { label: "Important Dates", href: "/more/dates", iconName: "Calendar" },
+  { label: "Global Search", href: "/search", iconName: "Search" },
   { label: "Family Circle", href: "/more/family", iconName: "Users" },
 ];
 

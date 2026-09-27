@@ -9,6 +9,8 @@ import {
   Bell,
   ChevronRight,
   RefreshCw,
+  BarChart3,
+  Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
@@ -16,6 +18,27 @@ export default async function MorePage() {
   await requireUser();
 
   const sections = [
+    {
+      title: "Analytics & Exploration",
+      items: [
+        {
+          title: "Reports & Analytics",
+          description: "Audit-ready PDF, CSV, and image reports across spending, bills, expiries, and renewals",
+          href: "/reports",
+          icon: BarChart3,
+          badge: "Active",
+          variant: "success" as const,
+        },
+        {
+          title: "Global Search",
+          description: "Unified search across documents, reminders, bills, expenses, vehicles, and milestones",
+          href: "/search",
+          icon: Search,
+          badge: "Active",
+          variant: "success" as const,
+        },
+      ],
+    },
     {
       title: "System & Profile",
       items: [
