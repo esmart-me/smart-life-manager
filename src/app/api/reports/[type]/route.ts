@@ -79,7 +79,14 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       data: {
+        ...reportData,
         report: reportData,
+        type: reportData.metadata.type,
+        metadata: reportData.metadata,
+        summary: {
+          totalExpense: (reportData.rawData as any)?.totalAmount || 0,
+        },
+        summaryCards: reportData.summaryCards,
         shareText,
       },
     });

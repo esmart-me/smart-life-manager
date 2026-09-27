@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, cost, currency, billingCycle, nextBillingDate, category, notes } = body;
+    const { name, cost, amount, currency, billingCycle, nextBillingDate, nextRenewalDate, renewalDate, category, notes } = body;
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json(
@@ -57,7 +57,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const numCost = Number(cost);
+    const rawCost = cost !== undefined ? cost : amount;
+    const numCost = Number(rawCost);
     if (isNaN(numCost) || numCost <= 0) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_COST", message: "Valid positive amount is required" } },
@@ -65,14 +66,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!nextBillingDate) {
+    const rawBillingDate = nextBillingDate || nextRenewalDate || renewalDate;
+    if (!rawBillingDate) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_DATE", message: "Billing date is required" } },
         { status: 400 }
       );
     }
 
-    const cleanDate = new Date(nextBillingDate);
+    const cleanDate = new Date(rawBillingDate);
     if (isNaN(cleanDate.getTime())) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_DATE", message: "Invalid billing date format" } },

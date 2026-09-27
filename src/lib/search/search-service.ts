@@ -31,8 +31,18 @@ export interface SearchResultItem {
 export interface GlobalSearchResponse {
   query: string;
   total: number;
+  totalResults: number;
   categoryCounts: Record<SearchCategory, number>;
   grouped: {
+    documents: SearchResultItem[];
+    reminders: SearchResultItem[];
+    payments: SearchResultItem[];
+    expenses: SearchResultItem[];
+    vehicles: SearchResultItem[];
+    subscriptions: SearchResultItem[];
+    dates: SearchResultItem[];
+  };
+  results: {
     documents: SearchResultItem[];
     reminders: SearchResultItem[];
     payments: SearchResultItem[];
@@ -52,9 +62,20 @@ export async function executeGlobalSearch(
   const query = (rawQuery || "").trim().toLowerCase();
   
   if (!query) {
+    const emptyGrouped = {
+      documents: [],
+      reminders: [],
+      payments: [],
+      expenses: [],
+      vehicles: [],
+      subscriptions: [],
+      dates: [],
+    };
+
     return {
       query: "",
       total: 0,
+      totalResults: 0,
       categoryCounts: {
         all: 0,
         documents: 0,
@@ -65,15 +86,8 @@ export async function executeGlobalSearch(
         subscriptions: 0,
         dates: 0,
       },
-      grouped: {
-        documents: [],
-        reminders: [],
-        payments: [],
-        expenses: [],
-        vehicles: [],
-        subscriptions: [],
-        dates: [],
-      },
+      grouped: emptyGrouped,
+      results: emptyGrouped,
       items: [],
     };
   }
@@ -366,11 +380,15 @@ export async function executeGlobalSearch(
     items = grouped[selectedCategory] || [];
   }
 
+  const total = categoryCounts[selectedCategory] ?? categoryCounts.all;
+
   return {
     query,
-    total: categoryCounts[selectedCategory] ?? categoryCounts.all,
+    total,
+    totalResults: total,
     categoryCounts,
     grouped,
+    results: grouped,
     items,
   };
 }

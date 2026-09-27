@@ -94,6 +94,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
                 recurrenceLabel: formatRecurrenceLabel(nextReminder.recurrenceRule),
               }
             : null,
+          nextReminder: nextReminder
+            ? {
+                ...nextReminder,
+                recurrenceLabel: formatRecurrenceLabel(nextReminder.recurrenceRule),
+              }
+            : null,
         },
       });
     } else {

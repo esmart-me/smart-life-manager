@@ -17,6 +17,12 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
+  if (!id || typeof id !== "string" || id.trim() === "") {
+    return NextResponse.json(
+      { success: false, error: { code: "INVALID_ID", message: "Subscription ID is required" } },
+      { status: 400 }
+    );
+  }
 
   try {
     const subscription = await prisma.subscription.findUnique({ where: { id } });
