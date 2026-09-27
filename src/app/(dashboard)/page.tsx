@@ -7,6 +7,7 @@ import { UpcomingEvent } from "@/components/dashboard/UpcomingSection";
 import { DashboardStats } from "@/components/dashboard/SummaryCards";
 import { formatShortDate } from "@/lib/utils";
 import { calculateDocumentStatus } from "@/lib/documents/status";
+import { calculatePaymentStatus, toCalendarDateString } from "@/lib/finance/calculations";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
   const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
   // Fetch all user-scoped data directly from database in parallel
-  const [userProfile, documents, reminders, payments, expenses] = await Promise.all([
+  const [userProfile, documents, reminders, payments, expenses, budgets] = await Promise.all([
     prisma.profile.findUnique({
       where: { userId: user.id },
       select: { currency: true, displayName: true, firstName: true },
@@ -35,6 +36,9 @@ export default async function DashboardPage() {
     prisma.expense.findMany({
       where: { userId: user.id },
       orderBy: { spentAt: "desc" },
+    }),
+    prisma.budget.findMany({
+      where: { userId: user.id },
     }),
   ]);
 
@@ -188,9 +192,40 @@ export default async function DashboardPage() {
 
   const pendingPayments = payments.filter((p) => !p.isPaid);
   const totalAmountDue = pendingPayments.reduce((acc, p) => acc + p.amount, 0);
-  const overduePaymentsCount = pendingPayments.filter((p) => p.dueDate < now).length;
 
+  const upcomingPaymentsList = pendingPayments.filter(
+    (p) => calculatePaymentStatus(p.dueDate, false, now) === "Upcoming"
+  );
+  const overduePaymentsList = pendingPayments.filter(
+    (p) => calculatePaymentStatus(p.dueDate, false, now) === "Overdue"
+  );
+
+  const upcomingPaymentsCount = upcomingPaymentsList.length;
+  const upcomingPaymentsAmount = upcomingPaymentsList.reduce((acc, p) => acc + p.amount, 0);
+  const overduePaymentsCount = overduePaymentsList.length;
+  const overduePaymentsAmount = overduePaymentsList.reduce((acc, p) => acc + p.amount, 0);
+
+  // Real Expenses & Budget Metrics
+  const nowDayStr = toCalendarDateString(now);
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+
+  const todayExpensesList = expenses.filter(
+    (e) => toCalendarDateString(e.spentAt) === nowDayStr
+  );
+  const todayExpenseAmount = todayExpensesList.reduce((acc, e) => acc + e.amount, 0);
+
+  const monthlyExpensesList = expenses.filter((e) => {
+    const d = new Date(e.spentAt);
+    return d.getFullYear() === nowYear && d.getMonth() === nowMonth;
+  });
+  const monthlyExpenseAmount = monthlyExpensesList.reduce((acc, e) => acc + e.amount, 0);
   const totalExpenseAmount = expenses.reduce((acc, e) => acc + e.amount, 0);
+
+  const totalBudgetRecord = budgets.find((b) => b.category.toLowerCase() === "total");
+  const monthlyBudgetLimit = totalBudgetRecord ? totalBudgetRecord.limitAmount : 0;
+  const budgetRemaining =
+    monthlyBudgetLimit > 0 ? monthlyBudgetLimit - monthlyExpenseAmount : null;
 
   const stats: DashboardStats = {
     documents: {
@@ -207,11 +242,18 @@ export default async function DashboardPage() {
       totalPending: pendingPayments.length,
       totalAmountDue,
       overdueCount: overduePaymentsCount,
+      overdueAmount: overduePaymentsAmount,
+      upcomingCount: upcomingPaymentsCount,
+      upcomingAmount: upcomingPaymentsAmount,
       currency,
     },
     expenses: {
       totalRecorded: expenses.length,
       totalAmount: totalExpenseAmount,
+      todayAmount: todayExpenseAmount,
+      monthlyAmount: monthlyExpenseAmount,
+      budgetRemaining,
+      monthlyBudget: monthlyBudgetLimit,
       currency,
     },
   };

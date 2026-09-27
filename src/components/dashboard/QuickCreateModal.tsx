@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AlertBanner } from "@/components/ui/AlertBanner";
 import { DOCUMENT_TYPES } from "@/lib/documents/constants";
+import { PAYMENT_CATEGORIES, EXPENSE_CATEGORIES } from "@/lib/finance/constants";
 
 export type QuickModalType = "document" | "reminder" | "payment" | "expense" | null;
 
@@ -36,10 +37,11 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
   const [payAmount, setPayAmount] = useState("");
   const [payDueDate, setPayDueDate] = useState("");
   const [payPayee, setPayPayee] = useState("");
+  const [payCategory, setPayCategory] = useState("Electricity");
 
   const [expTitle, setExpTitle] = useState("");
   const [expAmount, setExpAmount] = useState("");
-  const [expCategory, setExpCategory] = useState("food");
+  const [expCategory, setExpCategory] = useState("Food");
   const [expSpentAt, setExpSpentAt] = useState(new Date().toISOString().split("T")[0]);
 
   if (!type) return null;
@@ -76,6 +78,7 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
         currency: userCurrency,
         dueDate: payDueDate,
         payee: payPayee || null,
+        category: payCategory,
       };
     } else if (type === "expense") {
       endpoint = "/api/expenses";
@@ -291,12 +294,31 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
                 />
               </div>
 
-              <Input
-                label="Payee / Provider (Optional)"
-                placeholder="e.g. Power Corp, Landlord"
-                value={payPayee}
-                onChange={(e) => setPayPayee(e.target.value)}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Payee / Provider (Optional)"
+                  placeholder="e.g. Power Corp, Landlord"
+                  value={payPayee}
+                  onChange={(e) => setPayPayee(e.target.value)}
+                />
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Category
+                  </label>
+                  <select
+                    value={payCategory}
+                    onChange={(e) => setPayCategory(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    {PAYMENT_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </>
           )}
 
@@ -331,12 +353,11 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
                     onChange={(e) => setExpCategory(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
-                    <option value="food">Groceries & Food</option>
-                    <option value="transport">Transport & Fuel</option>
-                    <option value="housing">Housing & Utilities</option>
-                    <option value="health">Healthcare & Fitness</option>
-                    <option value="entertainment">Entertainment</option>
-                    <option value="other">Other</option>
+                    {EXPENSE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
