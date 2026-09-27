@@ -8,6 +8,7 @@ import {
   Shield,
   Bell,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
@@ -37,24 +38,37 @@ export default async function MorePage() {
       ],
     },
     {
-      title: "Future Life Modules (Architected)",
+      title: "Connected Life Modules",
       items: [
         {
           title: "Vehicles & Assets",
-          description: "Registration, insurance renewals, inspection alerts, and maintenance logs",
+          description: "Registration, insurance renewals, service alerts, and maintenance logs",
           href: "/more/vehicles",
           icon: Car,
-          badge: "Planned for Future Phase",
-          variant: "outline" as const,
+          badge: "Active",
+          variant: "success" as const,
+        },
+        {
+          title: "Subscriptions & Memberships",
+          description: "Recurring software, streaming services, and monthly/annual burn rate",
+          href: "/subscriptions",
+          icon: RefreshCw,
+          badge: "Active",
+          variant: "success" as const,
         },
         {
           title: "Important Dates & Anniversaries",
-          description: "Birthdays, anniversaries, and life milestone tracking",
+          description: "Birthdays, anniversaries, weddings, and annual milestone countdowns",
           href: "/more/dates",
           icon: Calendar,
-          badge: "Planned for Future Phase",
-          variant: "outline" as const,
+          badge: "Active",
+          variant: "success" as const,
         },
+      ],
+    },
+    {
+      title: "Upcoming Modules",
+      items: [
         {
           title: "Family Circle",
           description: "Family member profiles, emergency medical information, and document sharing",

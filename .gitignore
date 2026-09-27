@@ -38,3 +38,4 @@ next-env.d.ts
 # Uploads & temporary files
 /uploads
 /storage
+/Smart Life/

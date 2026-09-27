@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Bell, CreditCard, Receipt, Plus, ArrowRight, AlertTriangle, Clock, Wallet } from "lucide-react";
+import { FileText, Bell, CreditCard, Receipt, Plus, ArrowRight, AlertTriangle, Clock, Wallet, Car, RefreshCw, Calendar } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { QuickModalType } from "./QuickCreateModal";
@@ -32,6 +32,14 @@ export interface DashboardStats {
     monthlyAmount: number;
     budgetRemaining: number | null;
     monthlyBudget: number;
+    currency: string;
+  };
+  connectedModules?: {
+    vehiclesCount: number;
+    vehicleAlertsCount: number;
+    activeSubscriptionsCount: number;
+    monthlySubscriptionCost: number;
+    importantDatesCount: number;
     currency: string;
   };
 }
@@ -292,6 +300,75 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
           </div>
         </div>
       </div>
+
+      {stats.connectedModules && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          <Link
+            href="/more/vehicles"
+            className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between group shadow-2xs"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <Car className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  Vehicles Garage
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {stats.connectedModules.vehiclesCount} {stats.connectedModules.vehiclesCount === 1 ? "vehicle" : "vehicles"}
+                  {stats.connectedModules.vehicleAlertsCount > 0 ? (
+                    <span className="text-rose-500 font-medium"> • {stats.connectedModules.vehicleAlertsCount} alert{stats.connectedModules.vehicleAlertsCount === 1 ? "" : "s"}</span>
+                  ) : (
+                    " • All clear"
+                  )}
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+          </Link>
+
+          <Link
+            href="/subscriptions"
+            className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between group shadow-2xs"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  Subscriptions
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {stats.connectedModules.activeSubscriptionsCount} active • {formatCurrency(stats.connectedModules.monthlySubscriptionCost, stats.connectedModules.currency)}/mo
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+          </Link>
+
+          <Link
+            href="/more/dates"
+            className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between group shadow-2xs"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Calendar className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  Important Dates
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {stats.connectedModules.importantDatesCount} {stats.connectedModules.importantDatesCount === 1 ? "milestone" : "milestones"} tracked
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-600 transition-colors" />
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

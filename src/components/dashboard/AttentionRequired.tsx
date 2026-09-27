@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, AlertTriangle, CheckCircle2, ShieldAlert, FileWarning, DollarSign, Bell } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, ShieldAlert, FileWarning, DollarSign, Bell, Car } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 
@@ -9,9 +9,10 @@ export interface AttentionItem {
   title: string;
   subtitle: string;
   dueDateText: string;
-  type: "expired_document" | "expiring_document" | "critical_reminder" | "overdue_payment";
+  type: "expired_document" | "expiring_document" | "critical_reminder" | "overdue_payment" | "vehicle_alert";
   urgency: "urgent" | "high" | "warning";
   actionHref: string;
+  customBadge?: string;
 }
 
 interface AttentionRequiredProps {
@@ -33,6 +34,13 @@ export function AttentionRequired({ items }: AttentionRequiredProps) {
       badge: "OVERDUE",
       badgeVariant: "danger" as const,
       icon: DollarSign,
+      border: "border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20",
+      iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/50",
+    },
+    vehicle_alert: {
+      badge: "VEHICLE ALERT",
+      badgeVariant: "danger" as const,
+      icon: Car,
       border: "border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20",
       iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/50",
     },
@@ -109,8 +117,11 @@ export function AttentionRequired({ items }: AttentionRequiredProps) {
                   </div>
                 </div>
 
-                <Badge variant={config.badgeVariant} className="shrink-0 font-bold uppercase text-[10px]">
-                  {config.badge}
+                <Badge
+                  variant={item.urgency === "urgent" ? "danger" : item.urgency === "warning" ? "warning" : config.badgeVariant}
+                  className="shrink-0 font-bold uppercase text-[10px]"
+                >
+                  {item.customBadge || config.badge}
                 </Badge>
               </Link>
             );

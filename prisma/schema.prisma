@@ -268,7 +268,9 @@ model Vehicle {
   registrationExpiry DateTime?
   insuranceExpiry    DateTime?
   inspectionExpiry   DateTime?
+  nextServiceDate    DateTime?
   mileage            Int?
+  nextServiceMileage Int?
   notes              String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

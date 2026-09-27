@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PieChart, CreditCard, Receipt, Plus, Settings } from "lucide-react";
+import Link from "next/link";
+import { PieChart, CreditCard, Receipt, Plus, Settings, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BudgetStatusInfo } from "@/lib/finance/calculations";
 import { BudgetOverviewTab } from "./BudgetOverviewTab";
@@ -153,6 +154,14 @@ export function FinanceShellClient({
           <Receipt className="w-4 h-4" />
           <span>Expense Tracker ({initialExpenses.length})</span>
         </button>
+
+        <Link
+          href="/subscriptions"
+          className="pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 border-transparent text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span>Subscriptions Vault</span>
+        </Link>
       </div>
 
       {/* Tab Panels */}

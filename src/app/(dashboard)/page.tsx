@@ -8,15 +8,27 @@ import { DashboardStats } from "@/components/dashboard/SummaryCards";
 import { formatShortDate } from "@/lib/utils";
 import { calculateDocumentStatus } from "@/lib/documents/status";
 import { calculatePaymentStatus, toCalendarDateString } from "@/lib/finance/calculations";
+import { calculateVehicleAlerts } from "@/lib/vehicles/status";
+import { calculateSubscriptionMetrics } from "@/lib/subscriptions/calculations";
+import { calculateNextDateOccurrence } from "@/lib/dates/calculations";
 
 export default async function DashboardPage() {
   const user = await requireUser();
 
   const now = new Date();
-  const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
   // Fetch all user-scoped data directly from database in parallel
-  const [userProfile, documents, reminders, payments, expenses, budgets] = await Promise.all([
+  const [
+    userProfile,
+    documents,
+    reminders,
+    payments,
+    expenses,
+    budgets,
+    vehicles,
+    subscriptions,
+    importantDates,
+  ] = await Promise.all([
     prisma.profile.findUnique({
       where: { userId: user.id },
       select: { currency: true, displayName: true, firstName: true },
@@ -40,13 +52,25 @@ export default async function DashboardPage() {
     prisma.budget.findMany({
       where: { userId: user.id },
     }),
+    prisma.vehicle.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.subscription.findMany({
+      where: { userId: user.id },
+      orderBy: { nextBillingDate: "asc" },
+    }),
+    prisma.importantDate.findMany({
+      where: { userId: user.id },
+      orderBy: { eventDate: "asc" },
+    }),
   ]);
 
   const currency = userProfile?.currency || "USD";
   const displayName =
     userProfile?.displayName || userProfile?.firstName || user.displayName || user.email.split("@")[0];
 
-  // 1. Process ATTENTION REQUIRED items (Expired docs, critical reminders, overdue payments)
+  // 1. Process ATTENTION REQUIRED items (Expired docs, critical reminders, overdue payments, vehicle alerts)
   const attentionItems: AttentionItem[] = [];
 
   // A. Documents Requiring Attention (Expired & Critical/Expiring Soon)
@@ -77,8 +101,9 @@ export default async function DashboardPage() {
     }
   });
 
-  // B. Critical or Overdue Reminders
-  reminders.forEach((rem) => {
+  // B. Critical or Overdue Reminders (Filter standalone to prevent duplication with synced module reminders)
+  const standaloneReminders = reminders.filter((r) => !r.relatedType);
+  standaloneReminders.forEach((rem) => {
     if (rem.status === "pending") {
       const isOverdue = rem.dueDate < now;
       const isUrgent = rem.priority === "urgent" || rem.priority === "high";
@@ -114,11 +139,50 @@ export default async function DashboardPage() {
     }
   });
 
+  // D. Vehicle Alerts (Expired insurance/registration or overdue maintenance/mileage)
+  let totalVehicleAlertsCount = 0;
+  vehicles.forEach((veh) => {
+    const summary = calculateVehicleAlerts(veh, now);
+    totalVehicleAlertsCount += summary.alerts.length;
+
+    summary.alerts.forEach((alert) => {
+      attentionItems.push({
+        id: `veh-alert-${veh.id}-${alert.type}`,
+        title: alert.title,
+        subtitle: `${veh.make} ${veh.model} • ${alert.message}`,
+        dueDateText: alert.dueDate ? formatShortDate(new Date(alert.dueDate)) : "Action required",
+        type: "vehicle_alert",
+        urgency: alert.urgency === "urgent" ? "urgent" : "warning",
+        actionHref: "/more/vehicles",
+        customBadge: alert.urgency === "urgent" ? "URGENT" : "VEHICLE ALERT",
+      });
+    });
+  });
+
+  // E. Past Due Subscriptions
+  subscriptions.forEach((sub) => {
+    if (sub.renewalStatus === "active") {
+      const nextBill = new Date(sub.nextBillingDate);
+      if (nextBill < now) {
+        attentionItems.push({
+          id: `sub-due-${sub.id}`,
+          title: `${sub.name} Subscription Renewal Due`,
+          subtitle: `${sub.category} • ${sub.currency} ${sub.cost.toFixed(2)} (${sub.billingCycle})`,
+          dueDateText: `Due was ${formatShortDate(nextBill)}`,
+          type: "overdue_payment",
+          urgency: "warning",
+          actionHref: "/subscriptions",
+          customBadge: "DUE",
+        });
+      }
+    }
+  });
+
   // 2. Process UPCOMING items chronologically
   const upcomingEvents: UpcomingEvent[] = [];
 
-  // A. Upcoming Reminders
-  reminders.forEach((rem) => {
+  // A. Upcoming Standalone Reminders
+  standaloneReminders.forEach((rem) => {
     if (rem.status === "pending" && rem.dueDate >= now) {
       const days = Math.ceil((rem.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       upcomingEvents.push({
@@ -169,6 +233,93 @@ export default async function DashboardPage() {
         actionHref: "/documents",
       });
     }
+  });
+
+  // D. Upcoming Vehicle Maintenance & Expiries
+  vehicles.forEach((veh) => {
+    if (veh.nextServiceDate && new Date(veh.nextServiceDate) >= now) {
+      const svcDate = new Date(veh.nextServiceDate);
+      const days = Math.ceil((svcDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      upcomingEvents.push({
+        id: `up-veh-svc-${veh.id}`,
+        title: `${veh.name} Scheduled Service`,
+        subtitle: `${veh.make} ${veh.model} • Maintenance`,
+        eventDate: svcDate,
+        dateFormatted: formatShortDate(svcDate),
+        daysRemaining: days,
+        category: "vehicle",
+        categoryLabel: "Vehicle",
+        actionHref: "/more/vehicles",
+      });
+    }
+    if (veh.insuranceExpiry && new Date(veh.insuranceExpiry) >= now) {
+      const insDate = new Date(veh.insuranceExpiry);
+      const days = Math.ceil((insDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      upcomingEvents.push({
+        id: `up-veh-ins-${veh.id}`,
+        title: `${veh.name} Insurance Expiry`,
+        subtitle: `${veh.make} ${veh.model} • Policy Expiry`,
+        eventDate: insDate,
+        dateFormatted: formatShortDate(insDate),
+        daysRemaining: days,
+        category: "vehicle",
+        categoryLabel: "Vehicle",
+        actionHref: "/more/vehicles",
+      });
+    }
+    if (veh.registrationExpiry && new Date(veh.registrationExpiry) >= now) {
+      const regDate = new Date(veh.registrationExpiry);
+      const days = Math.ceil((regDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      upcomingEvents.push({
+        id: `up-veh-reg-${veh.id}`,
+        title: `${veh.name} Registration Renewal`,
+        subtitle: `${veh.make} ${veh.model} • Plate: ${veh.licensePlate || "N/A"}`,
+        eventDate: regDate,
+        dateFormatted: formatShortDate(regDate),
+        daysRemaining: days,
+        category: "vehicle",
+        categoryLabel: "Vehicle",
+        actionHref: "/more/vehicles",
+      });
+    }
+  });
+
+  // E. Upcoming Active Subscriptions
+  subscriptions.forEach((sub) => {
+    if (sub.renewalStatus === "active" && new Date(sub.nextBillingDate) >= now) {
+      const billDate = new Date(sub.nextBillingDate);
+      const days = Math.ceil((billDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      upcomingEvents.push({
+        id: `up-sub-${sub.id}`,
+        title: `${sub.name} Subscription Renewal`,
+        subtitle: `${sub.category} • ${sub.currency} ${sub.cost.toFixed(2)} (${sub.billingCycle})`,
+        eventDate: billDate,
+        dateFormatted: formatShortDate(billDate),
+        daysRemaining: days,
+        category: "subscription",
+        categoryLabel: "Subscription",
+        actionHref: "/subscriptions",
+      });
+    }
+  });
+
+  // F. Upcoming Important Dates (Birthdays, Anniversaries, etc.)
+  importantDates.forEach((d) => {
+    const computed = calculateNextDateOccurrence(d.eventDate, d.recurrence, now);
+    const milestoneStr = computed.yearsCount ? ` (${computed.yearsCount}th year)` : "";
+    const catLabel = d.category ? d.category.charAt(0).toUpperCase() + d.category.slice(1) : "Important Date";
+
+    upcomingEvents.push({
+      id: `up-date-${d.id}`,
+      title: `${d.title}${milestoneStr}`,
+      subtitle: `${catLabel} • ${computed.label}`,
+      eventDate: computed.nextOccurrence,
+      dateFormatted: formatShortDate(computed.nextOccurrence),
+      daysRemaining: computed.daysRemaining,
+      category: "date",
+      categoryLabel: catLabel,
+      actionHref: "/more/dates",
+    });
   });
 
   // Sort chronological order (closest date first)
@@ -227,6 +378,8 @@ export default async function DashboardPage() {
   const budgetRemaining =
     monthlyBudgetLimit > 0 ? monthlyBudgetLimit - monthlyExpenseAmount : null;
 
+  const subMetrics = calculateSubscriptionMetrics(subscriptions);
+
   const stats: DashboardStats = {
     documents: {
       total: documents.length,
@@ -254,6 +407,14 @@ export default async function DashboardPage() {
       monthlyAmount: monthlyExpenseAmount,
       budgetRemaining,
       monthlyBudget: monthlyBudgetLimit,
+      currency,
+    },
+    connectedModules: {
+      vehiclesCount: vehicles.length,
+      vehicleAlertsCount: totalVehicleAlertsCount,
+      activeSubscriptionsCount: subMetrics.activeCount,
+      monthlySubscriptionCost: subMetrics.monthlyTotal,
+      importantDatesCount: importantDates.length,
       currency,
     },
   };

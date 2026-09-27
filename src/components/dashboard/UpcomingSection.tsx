@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Bell, CreditCard, FileText, Plus, ChevronRight, Clock } from "lucide-react";
+import { Calendar, Bell, CreditCard, FileText, Plus, ChevronRight, Clock, Car, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { QuickModalType } from "./QuickCreateModal";
@@ -12,7 +12,7 @@ export interface UpcomingEvent {
   eventDate: Date;
   dateFormatted: string;
   daysRemaining: number;
-  category: "reminder" | "payment" | "document";
+  category: "reminder" | "payment" | "document" | "vehicle" | "subscription" | "date";
   categoryLabel: string;
   actionHref: string;
 }
@@ -29,6 +29,9 @@ export function UpcomingSection({ events, onOpenModal }: UpcomingSectionProps) {
     reminder: Bell,
     payment: CreditCard,
     document: FileText,
+    vehicle: Car,
+    subscription: RefreshCw,
+    date: Calendar,
   };
 
   const getDaysBadge = (days: number) => {
