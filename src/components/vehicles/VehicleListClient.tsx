@@ -18,6 +18,7 @@ import {
   Disc,
   Droplet,
   FileText,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { VehicleStatusSummary } from "@/lib/vehicles/status";
@@ -49,6 +50,8 @@ export function VehicleListClient({ initialVehicles }: VehicleListClientProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleFormData | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "alert" | "good">("all");
 
   const handleRefresh = () => {
     router.refresh();
@@ -97,6 +100,24 @@ export function VehicleListClient({ initialVehicles }: VehicleListClientProps) {
     }
   };
 
+  const filteredVehicles = initialVehicles.filter((v) => {
+    if (statusFilter === "alert" && v.statusSummary.alerts.length === 0) return false;
+    if (statusFilter === "good" && v.statusSummary.alerts.length > 0) return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = v.name.toLowerCase().includes(q);
+      const matchMake = (v.make || "").toLowerCase().includes(q);
+      const matchModel = (v.model || "").toLowerCase().includes(q);
+      const matchPlate = (v.licensePlate || "").toLowerCase().includes(q);
+      const matchVin = (v.vin || "").toLowerCase().includes(q);
+      if (!matchName && !matchMake && !matchModel && !matchPlate && !matchVin) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -121,6 +142,58 @@ export function VehicleListClient({ initialVehicles }: VehicleListClientProps) {
         </Button>
       </div>
 
+      {/* Search & Filter Bar */}
+      {initialVehicles.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search vehicles, make, model, plate..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                statusFilter === "all"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+              }`}
+            >
+              All ({initialVehicles.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("alert")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                statusFilter === "alert"
+                  ? "bg-rose-600 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+              }`}
+            >
+              Alerts ({initialVehicles.filter((v) => v.statusSummary.alerts.length > 0).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("good")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                statusFilter === "good"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+              }`}
+            >
+              Good Standing ({initialVehicles.filter((v) => v.statusSummary.alerts.length === 0).length})
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Vehicle Grid */}
       {initialVehicles.length === 0 ? (
         <div className="p-10 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3">
@@ -144,9 +217,25 @@ export function VehicleListClient({ initialVehicles }: VehicleListClientProps) {
             Add Your First Vehicle
           </Button>
         </div>
+      ) : filteredVehicles.length === 0 ? (
+        <div className="p-8 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-2">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            No vehicles match your search or filter
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setStatusFilter("all");
+            }}
+            className="text-xs text-indigo-600 hover:underline"
+          >
+            Reset Filters
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {initialVehicles.map((vehicle) => {
+          {filteredVehicles.map((vehicle) => {
             const { alerts, insuranceStatus, registrationStatus, serviceStatus, mileageStatus } =
               vehicle.statusSummary;
 

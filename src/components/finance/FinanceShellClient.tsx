@@ -21,6 +21,7 @@ interface FinanceShellClientProps {
   initialBudgets: Array<{ category: string; limitAmount: number; currency: string }>;
   initialAnalytics: BudgetStatusInfo;
   userCurrency: string;
+  initialTab?: ActiveTab;
 }
 
 export function FinanceShellClient({
@@ -29,10 +30,11 @@ export function FinanceShellClient({
   initialBudgets,
   initialAnalytics,
   userCurrency,
+  initialTab = "overview",
 }: FinanceShellClientProps) {
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
 
   // Modals state
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);

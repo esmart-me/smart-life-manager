@@ -14,6 +14,7 @@ import {
   TrendingDown,
   Layers,
   Sparkles,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency, formatShortDate } from "@/lib/utils";
@@ -47,6 +48,7 @@ export function SubscriptionListClient({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<SubscriptionFormData | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "cancelled">("active");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleRefresh = () => {
     router.refresh();
@@ -111,8 +113,18 @@ export function SubscriptionListClient({
   };
 
   const filtered = initialSubscriptions.filter((s) => {
-    if (filter === "active") return s.renewalStatus === "active";
-    if (filter === "cancelled") return s.renewalStatus === "cancelled";
+    if (filter === "active" && s.renewalStatus !== "active") return false;
+    if (filter === "cancelled" && s.renewalStatus !== "cancelled") return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = s.name.toLowerCase().includes(q);
+      const matchCat = s.category.toLowerCase().includes(q);
+      const matchNotes = (s.notes || "").toLowerCase().includes(q);
+      if (!matchName && !matchCat && !matchNotes) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -194,47 +206,61 @@ export function SubscriptionListClient({
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => setFilter("active")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            filter === "active"
-              ? "bg-purple-600 text-white"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-          }`}
-        >
-          Active ({initialMetrics.activeCount})
-        </button>
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search subscriptions, category, notes..."
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setFilter("all")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            filter === "all"
-              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-          }`}
-        >
-          All ({initialSubscriptions.length})
-        </button>
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFilter("active")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              filter === "active"
+                ? "bg-purple-600 text-white"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+            }`}
+          >
+            Active ({initialMetrics.activeCount})
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setFilter("cancelled")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            filter === "cancelled"
-              ? "bg-slate-700 text-white"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-          }`}
-        >
-          Cancelled ({initialMetrics.cancelledCount})
-        </button>
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              filter === "all"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+            }`}
+          >
+            All ({initialSubscriptions.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter("cancelled")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              filter === "cancelled"
+                ? "bg-slate-700 text-white"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+            }`}
+          >
+            Cancelled ({initialMetrics.cancelledCount})
+          </button>
+        </div>
       </div>
 
       {/* Subscription List */}
-      {filtered.length === 0 ? (
+      {initialSubscriptions.length === 0 ? (
         <div className="p-10 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3">
           <div className="w-12 h-12 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto">
             <RefreshCw className="w-6 h-6" />
@@ -244,7 +270,7 @@ export function SubscriptionListClient({
               No subscriptions found
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Add your streaming, cloud storage, productivity tools, and recurring memberships.
+              Add recurring memberships, streaming subscriptions, and services to track burn rate.
             </p>
           </div>
           <Button
@@ -255,6 +281,22 @@ export function SubscriptionListClient({
           >
             Add First Subscription
           </Button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="p-8 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-2">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            No subscriptions match your search or filter
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setFilter("all");
+            }}
+            className="text-xs text-purple-600 hover:underline"
+          >
+            Reset Filters
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">

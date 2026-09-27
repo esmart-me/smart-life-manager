@@ -13,6 +13,7 @@ import {
   Edit2,
   Clock,
   Filter,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ComputedDateInfo } from "@/lib/dates/calculations";
@@ -40,6 +41,7 @@ export function ImportantDateListClient({ initialDates }: ImportantDateListClien
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<ImportantDateFormData | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleRefresh = () => {
     router.refresh();
@@ -86,6 +88,15 @@ export function ImportantDateListClient({ initialDates }: ImportantDateListClien
     if (categoryFilter !== "all" && d.category.toLowerCase() !== categoryFilter.toLowerCase()) {
       return false;
     }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = d.title.toLowerCase().includes(q);
+      const matchNotes = (d.notes || "").toLowerCase().includes(q);
+      const matchCat = d.category.toLowerCase().includes(q);
+      if (!matchTitle && !matchNotes && !matchCat) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -113,41 +124,55 @@ export function ImportantDateListClient({ initialDates }: ImportantDateListClien
         </Button>
       </div>
 
-      {/* Filter Category Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          type="button"
-          onClick={() => setCategoryFilter("all")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-            categoryFilter === "all"
-              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-          }`}
-        >
-          All Dates ({initialDates.length})
-        </button>
+      {/* Search & Category Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search dates, milestones, notes..."
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"
+          />
+        </div>
 
-        {IMPORTANT_DATE_CATEGORIES.map((cat) => {
-          const count = initialDates.filter((d) => d.category.toLowerCase() === cat.value.toLowerCase()).length;
-          return (
-            <button
-              key={cat.value}
-              type="button"
-              onClick={() => setCategoryFilter(cat.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                categoryFilter === cat.value
-                  ? "bg-rose-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-              }`}
-            >
-              {cat.label} ({count})
-            </button>
-          );
-        })}
+        {/* Filter Category Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+              categoryFilter === "all"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+            }`}
+          >
+            All Dates ({initialDates.length})
+          </button>
+
+          {IMPORTANT_DATE_CATEGORIES.map((cat) => {
+            const count = initialDates.filter((d) => d.category.toLowerCase() === cat.value.toLowerCase()).length;
+            return (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => setCategoryFilter(cat.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                  categoryFilter === cat.value
+                    ? "bg-rose-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                }`}
+              >
+                {cat.label} ({count})
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* List */}
-      {filtered.length === 0 ? (
+      {initialDates.length === 0 ? (
         <div className="p-10 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3">
           <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
             <Gift className="w-6 h-6" />
@@ -168,6 +193,22 @@ export function ImportantDateListClient({ initialDates }: ImportantDateListClien
           >
             Add First Important Date
           </Button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="p-8 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-2">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            No important dates match your search or filter
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setCategoryFilter("all");
+            }}
+            className="text-xs text-rose-600 hover:underline"
+          >
+            Reset Filters
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">

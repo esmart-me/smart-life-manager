@@ -171,15 +171,16 @@ export async function POST(request: Request) {
     // Determine recurrence rule
     let isRecurring = false;
     let recurrenceRule: string | null = null;
+    const recurrenceInput = repeat || body.recurrenceRule;
 
-    if (repeat && repeat !== "none" && repeat !== "one_time") {
+    if (recurrenceInput && recurrenceInput !== "none" && recurrenceInput !== "one_time") {
       isRecurring = true;
-      if (repeat === "custom") {
+      if (recurrenceInput === "custom") {
         const interval = Math.max(1, Number(customInterval) || 1);
         const unit = (customUnit || "days").toLowerCase();
         recurrenceRule = `custom:${interval}:${unit}`;
       } else {
-        recurrenceRule = String(repeat).toLowerCase();
+        recurrenceRule = String(recurrenceInput).toLowerCase();
       }
     }
 

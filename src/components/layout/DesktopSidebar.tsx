@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   LogOut,
   LucideIcon,
+  RefreshCw,
 } from "lucide-react";
 import { DESKTOP_NAV_ITEMS, DESKTOP_SECONDARY_NAV } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileText,
   Bell,
   Wallet,
+  RefreshCw,
   Car,
   Calendar,
   Users,

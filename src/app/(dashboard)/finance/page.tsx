@@ -7,8 +7,15 @@ import { ExpenseItem } from "@/components/finance/ExpenseListTab";
 
 export const dynamic = "force-dynamic";
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string }>;
+}) {
   const user = await requireUser();
+  const params = searchParams ? await searchParams : {};
+  const initialTab =
+    params.tab === "expenses" ? "expenses" : params.tab === "payments" ? "payments" : "overview";
 
   const [profile, rawPayments, rawExpenses, budgets] = await Promise.all([
     prisma.profile.findUnique({
@@ -79,6 +86,7 @@ export default async function FinancePage() {
       initialBudgets={budgets}
       initialAnalytics={analytics}
       userCurrency={userCurrency}
+      initialTab={initialTab}
     />
   );
 }
