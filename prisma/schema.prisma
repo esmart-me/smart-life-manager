@@ -1,0 +1,343 @@
+// Smart Life Manager - Relational Database Schema
+// Engine: SQLite (Local) / Compatible with PostgreSQL for production
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// 1. Users & Authentication
+// -------------------------------------------------------------
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          String    @default("user") // "user" | "admin"
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 1-to-1 relations
+  profile       Profile?
+  settings      UserSetting?
+
+  // 1-to-many user-owned modules
+  documents     Document[]
+  documentFiles DocumentFile[]
+  reminders     Reminder[]
+  payments      Payment[]
+  expenses      Expense[]
+  budgets       Budget[]
+  vehicles      Vehicle[]
+  subscriptions Subscription[]
+  importantDates ImportantDate[]
+  familyMembers FamilyMember[]
+  notifications Notification[]
+  sessions      Session[]
+
+  @@index([email])
+}
+
+// Session store for server-side revocation and security tracking
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+// -------------------------------------------------------------
+// 2. Profiles
+// -------------------------------------------------------------
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName   String?
+  lastName    String?
+  displayName String?
+  avatarUrl   String?
+  phoneNumber String?
+  timezone    String   @default("UTC")
+  currency    String   @default("USD")
+  locale      String   @default("en-US")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// 3. User Settings
+// -------------------------------------------------------------
+model UserSetting {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme              String   @default("system") // "system" | "light" | "dark"
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  reminderDaysBefore Int      @default(3)
+  weeklyDigest       Boolean  @default(true)
+  securityAlerts     Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// 4. Documents & Document Files (Prepared for Private Storage)
+// -------------------------------------------------------------
+model Document {
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  category       String         // "identity" | "finance" | "vehicle" | "property" | "medical" | "other"
+  documentNumber String?
+  issuedBy       String?
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  hasExpiry      Boolean        @default(false)
+  notes          String?
+  tags           String?        // Comma-separated or JSON string
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  files          DocumentFile[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([expiryDate])
+}
+
+model DocumentFile {
+  id            String   @id @default(cuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName      String
+  fileType      String   // MIME type
+  fileSize      Int      // File size in bytes
+  storageKey    String   // Encrypted storage key / object path
+  storageDriver String   @default("local") // "local" | "s3" | "gcs"
+  isEncrypted   Boolean  @default(true)
+  checksum      String?
+  createdAt     DateTime @default(now())
+
+  @@index([documentId])
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// 5. Reminders
+// -------------------------------------------------------------
+model Reminder {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  dueDate        DateTime
+  priority       String    @default("medium") // "low" | "medium" | "high" | "urgent"
+  status         String    @default("pending") // "pending" | "completed" | "snoozed" | "cancelled"
+  category       String    @default("general") // "document" | "payment" | "vehicle" | "personal" | "general"
+  relatedType    String?   // "document" | "payment" | "vehicle" | "subscription"
+  relatedId      String?
+  isRecurring    Boolean   @default(false)
+  recurrenceRule String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([priority])
+}
+
+// -------------------------------------------------------------
+// 6. Payments
+// -------------------------------------------------------------
+model Payment {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  payee       String?
+  amount      Float
+  currency    String    @default("USD")
+  dueDate     DateTime
+  isPaid      Boolean   @default(false)
+  paidAt      DateTime?
+  category    String    @default("bill") // "bill" | "loan" | "tax" | "insurance" | "rent" | "other"
+  isRecurring Boolean   @default(false)
+  frequency   String?   // "weekly" | "monthly" | "quarterly" | "yearly"
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([dueDate])
+  @@index([isPaid])
+}
+
+// -------------------------------------------------------------
+// 7. Expenses
+// -------------------------------------------------------------
+model Expense {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  amount        Float
+  currency      String   @default("USD")
+  category      String   // "housing" | "transport" | "food" | "utilities" | "entertainment" | "health" | "other"
+  spentAt       DateTime @default(now())
+  paymentMethod String?  // "card" | "cash" | "transfer"
+  merchant      String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([spentAt])
+  @@index([category])
+}
+
+// -------------------------------------------------------------
+// 8. Budgets
+// -------------------------------------------------------------
+model Budget {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       String
+  limitAmount    Float
+  currency       String    @default("USD")
+  period         String    @default("monthly") // "monthly" | "weekly" | "yearly"
+  startDate      DateTime?
+  endDate        DateTime?
+  alertThreshold Int       @default(80)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([category])
+}
+
+// -------------------------------------------------------------
+// 9. Vehicles
+// -------------------------------------------------------------
+model Vehicle {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String    // e.g. "Primary Car"
+  make               String?
+  model              String?
+  year               Int?
+  licensePlate       String?
+  vin                String?
+  registrationExpiry DateTime?
+  insuranceExpiry    DateTime?
+  inspectionExpiry   DateTime?
+  mileage            Int?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// 10. Subscriptions
+// -------------------------------------------------------------
+model Subscription {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  cost            Float
+  currency        String   @default("USD")
+  billingCycle    String   @default("monthly") // "monthly" | "yearly" | "weekly" | "quarterly"
+  nextBillingDate DateTime
+  renewalStatus   String   @default("active")  // "active" | "cancelled" | "paused"
+  category        String   @default("entertainment")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([nextBillingDate])
+  @@index([renewalStatus])
+}
+
+// -------------------------------------------------------------
+// 11. Important Dates
+// -------------------------------------------------------------
+model ImportantDate {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  eventDate          DateTime
+  category           String   @default("personal") // "anniversary" | "birthday" | "legal" | "health" | "career"
+  recurrence         String   @default("yearly")   // "none" | "yearly" | "monthly"
+  reminderDaysBefore Int      @default(7)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId])
+  @@index([eventDate])
+}
+
+// -------------------------------------------------------------
+// 12. Family Members
+// -------------------------------------------------------------
+model FamilyMember {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  relationship     String    // "spouse" | "child" | "parent" | "sibling" | "other"
+  birthDate        DateTime?
+  bloodType        String?
+  emergencyContact Boolean   @default(false)
+  phoneNumber      String?
+  email            String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// 13. Notifications
+// -------------------------------------------------------------
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info") // "info" | "warning" | "alert" | "success"
+  isRead    Boolean  @default(false)
+  linkUrl   String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
