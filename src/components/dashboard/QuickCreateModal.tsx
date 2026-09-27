@@ -6,6 +6,7 @@ import { X, FilePlus, BellPlus, CreditCard, Receipt, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AlertBanner } from "@/components/ui/AlertBanner";
+import { DOCUMENT_TYPES } from "@/lib/documents/constants";
 
 export type QuickModalType = "document" | "reminder" | "payment" | "expense" | null;
 
@@ -195,13 +196,11 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
                     onChange={(e) => setDocCategory(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
-                    <option value="identity">Identity & Passport</option>
-                    <option value="insurance">Insurance Policy</option>
-                    <option value="vehicle">Vehicle & License</option>
-                    <option value="finance">Financial & Tax</option>
-                    <option value="medical">Medical & Health</option>
-                    <option value="contract">Contracts & Legal</option>
-                    <option value="other">Other</option>
+                    {DOCUMENT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

@@ -6,6 +6,7 @@ import { AttentionItem } from "@/components/dashboard/AttentionRequired";
 import { UpcomingEvent } from "@/components/dashboard/UpcomingSection";
 import { DashboardStats } from "@/components/dashboard/SummaryCards";
 import { formatShortDate } from "@/lib/utils";
+import { calculateDocumentStatus } from "@/lib/documents/status";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -44,27 +45,28 @@ export default async function DashboardPage() {
   // 1. Process ATTENTION REQUIRED items (Expired docs, critical reminders, overdue payments)
   const attentionItems: AttentionItem[] = [];
 
-  // A. Expired Documents
+  // A. Documents Requiring Attention (Expired & Critical/Expiring Soon)
   documents.forEach((doc) => {
     if (doc.hasExpiry && doc.expiryDate) {
-      if (doc.expiryDate < now) {
+      const statusInfo = calculateDocumentStatus(doc.expiryDate);
+      if (statusInfo.status === "EXPIRED") {
         attentionItems.push({
           id: `doc-exp-${doc.id}`,
           title: `${doc.title} Expired`,
-          subtitle: `Category: ${doc.category}`,
-          dueDateText: `Expired on ${formatShortDate(doc.expiryDate)}`,
+          subtitle: `${doc.category} • ${statusInfo.countdownText}`,
+          dueDateText: statusInfo.countdownText,
           type: "expired_document",
           urgency: "urgent",
           actionHref: "/documents",
         });
-      } else if (doc.expiryDate <= thirtyDaysFromNow) {
+      } else if (statusInfo.status === "CRITICAL" || statusInfo.status === "EXPIRING_SOON") {
         attentionItems.push({
           id: `doc-soon-${doc.id}`,
           title: `${doc.title} Renewal Soon`,
-          subtitle: `Category: ${doc.category}`,
-          dueDateText: `Expires on ${formatShortDate(doc.expiryDate)}`,
+          subtitle: `${doc.category} • ${statusInfo.label} (${statusInfo.countdownText})`,
+          dueDateText: statusInfo.countdownText,
           type: "expiring_document",
-          urgency: "warning",
+          urgency: statusInfo.status === "CRITICAL" ? "urgent" : "warning",
           actionHref: "/documents",
         });
       }
@@ -170,12 +172,13 @@ export default async function DashboardPage() {
 
   // 3. Compute REAL SUMMARY STATS (Never fake data)
   const expiredDocsCount = documents.filter(
-    (d) => d.hasExpiry && d.expiryDate && d.expiryDate < now
+    (d) => calculateDocumentStatus(d.expiryDate).status === "EXPIRED"
   ).length;
 
-  const expiringSoonDocsCount = documents.filter(
-    (d) => d.hasExpiry && d.expiryDate && d.expiryDate >= now && d.expiryDate <= thirtyDaysFromNow
-  ).length;
+  const expiringSoonDocsCount = documents.filter((d) => {
+    const s = calculateDocumentStatus(d.expiryDate).status;
+    return s === "CRITICAL" || s === "EXPIRING_SOON";
+  }).length;
 
   const pendingReminders = reminders.filter((r) => r.status === "pending");
   const urgentRemindersCount = pendingReminders.filter(
