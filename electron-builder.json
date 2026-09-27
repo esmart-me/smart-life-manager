@@ -23,20 +23,11 @@
       "to": "prisma/dev.db"
     }
   ],
-  "asar": true,
-  "asarUnpack": [
-    "prisma/dev.db",
-    "node_modules/@prisma/client/**/*",
-    "node_modules/.prisma/**/*"
-  ],
+  "asar": false,
   "win": {
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
-      },
-      {
-        "target": "portable",
         "arch": ["x64"]
       }
     ],

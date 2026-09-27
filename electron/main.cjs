@@ -1,13 +1,13 @@
 // electron/main.cjs
 // Electron Main Process for Smart Life Manager Windows Desktop Application
 
-const { app, BrowserWindow, shell, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
-const { fork } = require('child_process');
+const fs = require('fs');
 
 let mainWindow = null;
-let serverProcess = null;
+let localServer = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 // Ensure single instance lock so multiple clicks don't spawn duplicate processes
@@ -25,19 +25,48 @@ app.on('second-instance', () => {
 });
 
 /**
- * Checks if a specific port is already listening and responsive
+ * Determines root directory of Next.js app
  */
-function isPortListening(port) {
-  return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/api/health`, (res) => {
-      resolve(res.statusCode === 200);
-    });
-    req.on('error', () => resolve(false));
-    req.setTimeout(1000, () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
+function getAppRoot() {
+  if (!app.isPackaged) {
+    return path.resolve(__dirname, '..');
+  }
+  return path.join(process.resourcesPath, 'app');
+}
+
+/**
+ * Prepares user data directory & SQLite database path for persistent storage
+ */
+function setupDatabaseEnvironment(appRoot) {
+  if (!app.isPackaged) {
+    // In development mode, use local prisma/dev.db
+    return;
+  }
+
+  try {
+    const userDataPath = app.getPath('userData');
+    const userPrismaDir = path.join(userDataPath, 'prisma');
+    if (!fs.existsSync(userPrismaDir)) {
+      fs.mkdirSync(userPrismaDir, { recursive: true });
+    }
+
+    const userDbPath = path.join(userPrismaDir, 'dev.db');
+    // If user's db doesn't exist yet, copy initial seed db from resources
+    if (!fs.existsSync(userDbPath)) {
+      const templateDb = path.join(process.resourcesPath, 'prisma', 'dev.db');
+      if (fs.existsSync(templateDb)) {
+        fs.copyFileSync(templateDb, userDbPath);
+        console.log('[Desktop] Copied initial database to user AppData:', userDbPath);
+      }
+    }
+
+    // Set DATABASE_URL to user's AppData location
+    const normalizedDbUri = 'file:' + userDbPath.replace(/\\/g, '/');
+    process.env.DATABASE_URL = normalizedDbUri;
+    console.log('[Desktop] Active DATABASE_URL:', normalizedDbUri);
+  } catch (err) {
+    console.error('[Desktop] Failed to initialize user database:', err);
+  }
 }
 
 /**
@@ -57,60 +86,41 @@ function getAvailablePort(basePort) {
 }
 
 /**
- * Spawns the local Next.js background server
+ * Starts the Next.js server in-process directly within Electron
  */
-async function launchLocalServer() {
-  // If in dev and dev server is already running on 3000, reuse it
-  if (isDev) {
-    const active = await isPortListening(3000);
-    if (active) {
-      console.log('[Desktop] Existing dev server detected on port 3000.');
-      return 'http://127.0.0.1:3000';
-    }
-  }
+async function startNextServer() {
+  const appRoot = getAppRoot();
+  setupDatabaseEnvironment(appRoot);
 
-  // Otherwise pick an open port and spawn the server worker
+  const next = require('next');
   const port = await getAvailablePort(3000);
-  console.log(`[Desktop] Starting background server on port ${port}...`);
 
-  return new Promise((resolve, reject) => {
-    const serverScript = path.join(__dirname, 'server.cjs');
+  console.log(`[Desktop] Initializing Next.js from ${appRoot} on port ${port}...`);
 
-    serverProcess = fork(serverScript, [String(port)], {
-      cwd: path.resolve(__dirname, '..'),
-      env: {
-        ...process.env,
-        PORT: String(port),
-        NODE_ENV: isDev ? 'development' : 'production',
-        ELECTRON_RUN_AS_NODE: '1',
-      },
-      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-    });
+  const nextApp = next({
+    dev: false,
+    dir: appRoot,
+    hostname: '127.0.0.1',
+    port: port,
+  });
 
-    serverProcess.stdout.on('data', (d) => process.stdout.write(`[Server] ${d}`));
-    serverProcess.stderr.on('data', (d) => process.stderr.write(`[Server ERR] ${d}`));
+  await nextApp.prepare();
+  const handle = nextApp.getRequestHandler();
 
-    const timeout = setTimeout(() => {
-      reject(new Error('Server boot timed out after 30 seconds.'));
-    }, 30000);
+  localServer = http.createServer((req, res) => {
+    handle(req, res);
+  });
 
-    serverProcess.on('message', (msg) => {
-      if (msg && msg.type === 'ready') {
-        clearTimeout(timeout);
-        resolve(msg.url);
-      } else if (msg && (msg.type === 'error' || msg.type === 'fatal')) {
-        clearTimeout(timeout);
-        reject(new Error(msg.error || 'Server failed to start'));
-      }
-    });
-
-    serverProcess.on('exit', (code) => {
-      if (code !== 0 && code !== null) {
-        clearTimeout(timeout);
-        reject(new Error(`Server process exited with code ${code}`));
-      }
+  await new Promise((resolve, reject) => {
+    localServer.listen(port, '127.0.0.1', (err) => {
+      if (err) reject(err);
+      else resolve();
     });
   });
+
+  const appUrl = `http://127.0.0.1:${port}`;
+  console.log(`[Desktop] Next.js server successfully running at ${appUrl}`);
+  return appUrl;
 }
 
 function createMainWindow(appUrl) {
@@ -122,7 +132,7 @@ function createMainWindow(appUrl) {
     minWidth: 960,
     minHeight: 640,
     center: true,
-    show: false, // Show once ready-to-show to prevent white flash
+    show: false,
     backgroundColor: '#090d16',
     title: 'Smart Life Manager',
     icon: iconPath,
@@ -136,20 +146,14 @@ function createMainWindow(appUrl) {
     },
   });
 
-  // Load local Next.js application
   mainWindow.loadURL(appUrl);
 
-  // Smooth reveal when DOM is painted
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    if (isDev) {
-      mainWindow.webContents.openDevTools({ mode: 'detach' });
-    }
   });
 
-  // Handle external navigation (e.g. Stripe checkout, external documentation)
+  // Handle external navigation (e.g. Stripe checkout, documentation)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // If navigation is external to localhost, launch in default web browser
     if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
       shell.openExternal(url);
       return { action: 'deny' };
@@ -169,34 +173,33 @@ function createMainWindow(appUrl) {
   });
 }
 
-// App lifecycle
 app.whenReady().then(async () => {
   try {
-    const appUrl = await launchLocalServer();
+    const appUrl = await startNextServer();
     createMainWindow(appUrl);
   } catch (err) {
     console.error('[Desktop Fatal]', err);
+    dialog.showErrorBox(
+      'Smart Life Manager Startup Error',
+      `Failed to initialize local application engine:\n\n${err.message || err}`
+    );
     app.quit();
   }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0 && mainWindow === null) {
-      // Re-create window on macOS or if reopened
       createMainWindow('http://127.0.0.1:3000');
     }
   });
 });
 
-// Clean up background server on application termination
 function cleanupServer() {
-  if (serverProcess) {
+  if (localServer) {
     try {
-      serverProcess.send('shutdown');
-      setTimeout(() => {
-        if (serverProcess) serverProcess.kill('SIGKILL');
-      }, 2000);
+      localServer.close();
+      localServer = null;
     } catch {
-      // Process already terminated
+      // Ignored
     }
   }
 }
