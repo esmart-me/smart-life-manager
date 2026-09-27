@@ -15,10 +15,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatRegionalCurrency } from "@/lib/regions";
+import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  await requireAdmin();
+
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 

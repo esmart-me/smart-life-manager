@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
 import { CustomersClient, CustomerDTO } from "@/components/admin/CustomersClient";
+import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCustomersPage() {
+  await requireAdmin();
   const users = await prisma.user.findMany({
     where: {
       role: { in: ["user", "customer"] },

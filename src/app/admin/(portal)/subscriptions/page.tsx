@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
 import { SubscriptionsClient, SubscriptionDTO } from "@/components/admin/SubscriptionsClient";
 import { getAuthoritativePlanPrice } from "@/lib/plans/regional-pricing";
+import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSubscriptionsPage() {
+  await requireAdmin();
   const users = await prisma.user.findMany({
     where: {
       role: { in: ["user", "customer"] },

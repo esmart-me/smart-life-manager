@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, isAdmin } from "@/lib/auth/session";
 import { updatePlanConfig, getAllPlans } from "@/lib/plans/plan-service";
 import { PlanTier } from "@/lib/plans/constants";
 
@@ -12,8 +12,12 @@ export async function PUT(req: Request) {
     );
   }
 
-  // Admin access check (in development mode or for users with role 'admin')
-  // We allow dev environment or user.role === 'admin'
+  if (!isAdmin(user.role)) {
+    return NextResponse.json(
+      { success: false, error: { code: "FORBIDDEN", message: "Admin access required" } },
+      { status: 403 }
+    );
+  }
   try {
     const body = await req.json();
     const { plan, updates } = body;

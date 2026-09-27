@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
 import { AuditLogClient, AuditLogDTO } from "@/components/admin/AuditLogClient";
+import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAuditPage() {
+  await requireAdmin();
   const logs = await prisma.adminAuditLog.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,

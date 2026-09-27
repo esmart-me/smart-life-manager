@@ -1,9 +1,11 @@
 import { getAllRegionalPricings } from "@/lib/plans/regional-pricing";
 import { PlanManagementClient, PlanPricingRow } from "@/components/admin/PlanManagementClient";
+import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPlansPage() {
+  await requireAdmin();
   const pricings = await getAllRegionalPricings();
 
   const pricingRows: PlanPricingRow[] = pricings.map((p) => ({

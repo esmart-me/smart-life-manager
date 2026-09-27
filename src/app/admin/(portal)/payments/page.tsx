@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
 import { PaymentsClient, PaymentTransactionDTO } from "@/components/admin/PaymentsClient";
+import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPaymentsPage() {
+  await requireAdmin();
   const transactions = await prisma.billingTransaction.findMany({
     orderBy: { paymentDate: "desc" },
     include: {
