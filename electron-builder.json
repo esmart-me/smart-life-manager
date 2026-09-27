@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.smartlifemanager.desktop",
+  "productName": "Smart Life Manager",
+  "copyright": "Copyright © 2026 Smart Life Manager",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": [
+    "electron/**/*",
+    ".next/**/*",
+    "public/**/*",
+    "prisma/**/*",
+    "package.json",
+    "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+    "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+    "!**/node_modules/*.d.ts",
+    "!**/node_modules/.bin"
+  ],
+  "extraResources": [
+    {
+      "from": "prisma/dev.db",
+      "to": "prisma/dev.db"
+    }
+  ],
+  "asar": true,
+  "asarUnpack": [
+    "prisma/dev.db",
+    "node_modules/@prisma/client/**/*",
+    "node_modules/.prisma/**/*"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "electron/assets/icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Smart Life Manager",
+    "uninstallDisplayName": "Smart Life Manager"
+  }
+}

@@ -2,6 +2,7 @@
   "name": "smart-life-manager",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,9 +13,13 @@
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
     "db:backup": "node scripts/backup-db.js",
-    "admin:create": "node scripts/create-admin.mjs"
+    "admin:create": "node scripts/create-admin.mjs",
+    "desktop": "electron electron/main.cjs",
+    "desktop:dev": "concurrently -k \"npm run dev\" \"wait-on tcp:3000 && electron electron/main.cjs\"",
+    "desktop:start": "electron electron/main.cjs",
+    "desktop:build": "next build && electron-builder --win --x64",
+    "build:exe": "next build && electron-builder --win --x64"
   },
-
   "dependencies": {
     "@prisma/client": "^6.4.1",
     "bcryptjs": "^3.0.2",
@@ -34,11 +39,15 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.20.1",
     "eslint-config-next": "15.1.7",
     "postcss": "^8.5.2",
     "prisma": "^6.4.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "wait-on": "^9.1.0"
   }
 }

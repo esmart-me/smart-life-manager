@@ -66,3 +66,9 @@ uploads/
 *.bak
 /backups/
 backups/
+
+# Desktop Application Packaging Outputs
+/dist-electron/
+dist-electron/
+*.blockmap
+

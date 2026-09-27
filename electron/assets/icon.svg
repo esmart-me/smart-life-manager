@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#090d16"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="102" fill="none" stroke="url(#accent)" stroke-width="4" opacity="0.4"/>
+
+  <!-- Shield Core -->
+  <path d="M256 90 L380 150 C380 270 330 360 256 410 C182 360 132 270 132 150 Z" 
+        fill="none" stroke="url(#accent)" stroke-width="16" stroke-linejoin="round" filter="url(#glow)"/>
+
+  <!-- Inner Spark / Life Star -->
+  <polygon points="256,160 278,228 350,228 292,270 314,338 256,296 198,338 220,270 162,228 234,228" 
+           fill="url(#accent)"/>
+  <circle cx="256" cy="256" r="24" fill="#ffffff" opacity="0.9"/>
+</svg>
