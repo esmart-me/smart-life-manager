@@ -1,20 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
 import {
   Users,
-  UserPlus,
-  ShieldCheck,
   CreditCard,
   XCircle,
   CheckCircle,
-  AlertTriangle,
   DollarSign,
   TrendingUp,
   Sparkles,
   ArrowUpRight,
   Activity,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
-import { formatRegionalCurrency } from "@/lib/regions";
 import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -45,12 +42,14 @@ export default async function AdminDashboardPage() {
         createdAt: { gte: thirtyDaysAgo },
       },
     }),
-    // Subscriptions breakdown
+    // Subscriptions breakdown (real DB rows)
     prisma.userSubscription.findMany({
       select: {
         plan: true,
         status: true,
         billingInterval: true,
+        amount: true,
+        currency: true,
       },
     }),
     // Billing transaction aggregates
@@ -79,12 +78,13 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
-  // Compute subscription numbers
+  // Compute subscription numbers from real database records
   let freeUsers = 0;
   let premiumUsers = 0;
   let familyUsers = 0;
   let activeSubscriptions = 0;
   let cancelledSubscriptions = 0;
+  let actualMRR = 0;
 
   for (const sub of userSubs) {
     if (sub.plan === "free") freeUsers++;
@@ -93,6 +93,9 @@ export default async function AdminDashboardPage() {
 
     if (sub.status === "active" && (sub.plan === "premium" || sub.plan === "family")) {
       activeSubscriptions++;
+      const monthlyAmount =
+        sub.billingInterval === "yearly" ? sub.amount / 12 : sub.amount;
+      actualMRR += monthlyAmount || 0;
     } else if (sub.status === "cancelled") {
       cancelledSubscriptions++;
     }
@@ -107,7 +110,7 @@ export default async function AdminDashboardPage() {
   // Active customers: users with an active status
   const activeCustomers = totalCustomers - cancelledSubscriptions;
 
-  // Compute payment transactions
+  // Compute payment transactions from real database rows
   let successfulPayments = 0;
   let failedPayments = 0;
   let totalRevenueUSD = 0;
@@ -121,22 +124,20 @@ export default async function AdminDashboardPage() {
     }
   }
 
-  // Real MRR & ARR calculation (based on active subscription entitlements)
-  // Premium ($9.99/mo) and Family ($19.99/mo)
-  const estimatedMRR = (premiumUsers * 9.99) + (familyUsers * 19.99);
-  const estimatedARR = estimatedMRR * 12;
+  const actualARR = actualMRR * 12;
+  const hasRevenueData = actualMRR > 0 || totalRevenueUSD > 0;
 
   const kpis = [
     {
-      title: "Total Subscribers",
+      title: "Total Customers",
       value: totalCustomers.toLocaleString(),
-      subtext: `${newCustomers} new in last 30 days`,
+      subtext: totalCustomers === 0 ? "No registered customers yet" : `${newCustomers} new in last 30 days`,
       icon: Users,
       color: "text-blue-400",
       bg: "bg-blue-950/40 border-blue-800/60",
     },
     {
-      title: "Active Subscribers",
+      title: "Active Customers",
       value: (activeCustomers > 0 ? activeCustomers : totalCustomers).toLocaleString(),
       subtext: `${activeSubscriptions} paying, ${freeUsers} free`,
       icon: Activity,
@@ -169,16 +170,20 @@ export default async function AdminDashboardPage() {
     },
     {
       title: "Monthly Recurring (MRR)",
-      value: `$${estimatedMRR.toFixed(2)}`,
-      subtext: "Based on active paying subscribers",
+      value: hasRevenueData ? `$${actualMRR.toFixed(2)}` : "$0.00",
+      subtext: hasRevenueData
+        ? `From ${activeSubscriptions} active paid subscription(s)`
+        : "Revenue data not configured",
       icon: DollarSign,
       color: "text-amber-400",
       bg: "bg-amber-950/40 border-amber-800/60",
     },
     {
       title: "Annual Revenue (ARR)",
-      value: `$${estimatedARR.toFixed(2)}`,
-      subtext: "Projected annual recurring run-rate",
+      value: hasRevenueData ? `$${actualARR.toFixed(2)}` : "$0.00",
+      subtext: hasRevenueData
+        ? "Projected annual recurring run-rate"
+        : "Revenue data not configured",
       icon: TrendingUp,
       color: "text-cyan-400",
       bg: "bg-cyan-950/40 border-cyan-800/60",
@@ -186,7 +191,10 @@ export default async function AdminDashboardPage() {
     {
       title: "Successful Payments",
       value: successfulPayments.toLocaleString(),
-      subtext: `${totalRevenueUSD > 0 ? `$${totalRevenueUSD.toFixed(2)} total collected` : "0.00 collected"}`,
+      subtext:
+        totalRevenueUSD > 0
+          ? `$${totalRevenueUSD.toFixed(2)} total collected`
+          : "Revenue data not configured",
       icon: CheckCircle,
       color: "text-emerald-400",
       bg: "bg-emerald-950/40 border-emerald-800/60",
@@ -290,9 +298,14 @@ export default async function AdminDashboardPage() {
 
           <div className="divide-y divide-slate-800/80">
             {recentCustomers.length === 0 ? (
-              <p className="py-6 text-center text-xs text-slate-500">
-                No customer accounts found.
-              </p>
+              <div className="py-8 text-center space-y-1">
+                <p className="text-xs font-semibold text-slate-300">
+                  No registered customers yet
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  When new customers sign up, their profile and subscription will appear here.
+                </p>
+              </div>
             ) : (
               recentCustomers.map((c) => (
                 <div key={c.id} className="py-3 flex items-center justify-between text-xs">

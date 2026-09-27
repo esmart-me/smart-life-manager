@@ -124,9 +124,26 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
     }
   };
 
+  if (subscriptions.length === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-12 text-center space-y-4 shadow-xl">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-950/60 border border-indigo-800/60 flex items-center justify-center mx-auto text-indigo-400">
+          <CreditCard className="w-8 h-8" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-white">No customer subscriptions yet</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            When registered customers activate plans, their subscription status, billing intervals, and tier entitlements will appear here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
+
       {successToast && (
         <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />

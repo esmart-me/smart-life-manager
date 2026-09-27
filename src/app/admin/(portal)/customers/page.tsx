@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminCustomersPage() {
   await requireAdmin();
+
   const users = await prisma.user.findMany({
     where: {
       role: { in: ["user", "customer"] },
@@ -17,7 +18,13 @@ export default async function AdminCustomersPage() {
       _count: {
         select: {
           documents: true,
+          reminders: true,
+          payments: true,
+          expenses: true,
           vehicles: true,
+          budgets: true,
+          familyMembers: true,
+          subscriptions: true,
         },
       },
     },
@@ -30,14 +37,30 @@ export default async function AdminCustomersPage() {
       u.profile?.displayName ||
       `${u.profile?.firstName || ""} ${u.profile?.lastName || ""}`.trim() ||
       u.email.split("@")[0],
+    firstName: u.profile?.firstName || null,
+    lastName: u.profile?.lastName || null,
+    role: u.role,
     country: u.profile?.country || "US",
+    region: u.profile?.region || "US",
     currency: u.profile?.currency || "USD",
+    timezone: u.profile?.timezone || "UTC",
     plan: u.userSubscription?.plan || "free",
+    planName: u.userSubscription?.planName || "Free Starter",
+    billingInterval: u.userSubscription?.billingInterval || "monthly",
     subscriptionStatus: u.userSubscription?.status || "active",
+    subscriptionAmount: u.userSubscription?.amount || 0.0,
+    currentPeriodEnd: u.userSubscription?.currentPeriodEnd
+      ? u.userSubscription.currentPeriodEnd.toISOString()
+      : null,
     createdAt: u.createdAt.toISOString(),
     lastActivity: u.updatedAt.toISOString(),
     documentsCount: u._count.documents,
+    remindersCount: u._count.reminders,
+    paymentsCount: u._count.payments,
+    expensesCount: u._count.expenses,
     vehiclesCount: u._count.vehicles,
+    budgetsCount: u._count.budgets,
+    familyCount: u._count.familyMembers,
   }));
 
   return (
@@ -47,7 +70,7 @@ export default async function AdminCustomersPage() {
           Customer Directory
         </h1>
         <p className="text-xs text-slate-400 mt-1">
-          Review, search, and monitor registered customer accounts and their active regional preferences.
+          Review, search, and inspect registered customer accounts, usage statistics, and active subscriptions.
         </p>
       </div>
 

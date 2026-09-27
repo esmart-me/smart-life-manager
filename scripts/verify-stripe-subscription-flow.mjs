@@ -1,7 +1,10 @@
 // Comprehensive automated test suite for Stripe subscription & payment workflow
 import assert from "node:assert";
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
 const BASE_URL = "http://localhost:3000";
+
 
 async function runStripeTests() {
   console.log("=== STARTING STRIPE SUBSCRIPTION & PAYMENT WORKFLOW VERIFICATION ===");
@@ -349,6 +352,16 @@ async function runStripeTests() {
     report("19. Customer Blocked from Admin Payment Ledger", true, "Access denied verified");
   } catch (err) {
     report("Admin Portal & Security Suite", false, err.message);
+  } finally {
+    if (customerId) {
+      await prisma.billingTransaction.deleteMany({ where: { userId: customerId } });
+      await prisma.userSubscription.deleteMany({ where: { userId: customerId } });
+      await prisma.profile.deleteMany({ where: { userId: customerId } });
+      await prisma.userSetting.deleteMany({ where: { userId: customerId } });
+      await prisma.user.deleteMany({ where: { id: customerId } });
+      console.log(`[TEARDOWN] Cleaned test customer ${customerId}`);
+    }
+    await prisma.$disconnect();
   }
 
   console.log(`\n=== VERIFICATION SUMMARY: ${passed} PASSED, ${failed} FAILED ===\n`);
@@ -358,3 +371,4 @@ async function runStripeTests() {
 }
 
 runStripeTests();
+

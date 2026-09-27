@@ -1,10 +1,12 @@
-// scripts/verify-full-production-audit.mjs
 // Comprehensive End-to-End Production Readiness & Security Audit Test Suite
 // Verifies Security, Multi-tenant Isolation, User Journey, Calculations, Search, Reports, and Exports.
 
 import assert from "node:assert";
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
 const BASE_URL = process.env.TEST_APP_URL || "http://localhost:3000";
+
 
 let passedCount = 0;
 let failedCount = 0;
@@ -731,6 +733,40 @@ async function runAudit() {
     );
   } catch (err) {
     logFail("Data Persistence Verification Check", err);
+  } finally {
+    try {
+      const usersToDelete = await prisma.user.findMany({
+        where: { email: { in: [emailA, emailB] } },
+        select: { id: true },
+      });
+      const ids = usersToDelete.map((u) => u.id);
+      if (ids.length > 0) {
+        await prisma.documentFile.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.document.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.reminder.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.payment.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.expense.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.budget.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.vehicle.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.subscription.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.importantDate.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.familyMember.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.familyGroupMember.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.familyGroup.deleteMany({ where: { ownerId: { in: ids } } });
+        await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.billingTransaction.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.userSubscription.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.session.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.userSetting.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.profile.deleteMany({ where: { userId: { in: ids } } });
+        await prisma.user.deleteMany({ where: { id: { in: ids } } });
+        console.log(`[TEARDOWN] Cleaned audit test accounts: ${emailA}, ${emailB}`);
+      }
+    } catch (e) {
+      console.error("[TEARDOWN ERROR]", e);
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 
   console.log("\n==================================================================");
@@ -746,3 +782,4 @@ runAudit().catch((err) => {
   console.error("FATAL AUDIT SUITE FAILURE:", err);
   process.exit(1);
 });
+
