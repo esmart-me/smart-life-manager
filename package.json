@@ -11,8 +11,10 @@
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
-    "db:backup": "node scripts/backup-db.js"
+    "db:backup": "node scripts/backup-db.js",
+    "admin:create": "node scripts/create-admin.mjs"
   },
+
   "dependencies": {
     "@prisma/client": "^6.4.1",
     "bcryptjs": "^3.0.2",

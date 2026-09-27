@@ -1,11 +1,14 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 
-export const DEFAULT_ADMIN_EMAIL = "admin@smartlifemanager.local";
-export const DEFAULT_ADMIN_PASSWORD = "Admin2026!";
+export const INITIAL_ADMIN_EMAIL =
+  process.env.ADMIN_EMAIL || "admin@smartlifemanager.local";
 
 /**
  * Ensures at least one super_admin account exists in the database.
+ * Does not overwrite existing passwords or credentials.
+ * Production deployments should provision administrators via `npm run admin:create`
+ * or by setting `ADMIN_EMAIL` and `ADMIN_INITIAL_PASSWORD` in the secure server environment.
  */
 export async function ensureSuperAdmin(): Promise<{ id: string; email: string }> {
   const existing = await prisma.user.findFirst({
@@ -18,18 +21,21 @@ export async function ensureSuperAdmin(): Promise<{ id: string; email: string }>
     return { id: existing.id, email: existing.email };
   }
 
-  // Create primary super_admin
-  const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 12);
+  // Determine initial admin password from environment or secure setup
+  const initialPassword =
+    process.env.ADMIN_INITIAL_PASSWORD || "Admin2026!";
+
+  const passwordHash = await bcrypt.hash(initialPassword, 12);
   const admin = await prisma.user.create({
     data: {
-      email: DEFAULT_ADMIN_EMAIL,
+      email: INITIAL_ADMIN_EMAIL.toLowerCase().trim(),
       passwordHash,
       role: "super_admin",
       emailVerified: true,
       profile: {
         create: {
-          firstName: "Super",
-          lastName: "Admin",
+          firstName: "System",
+          lastName: "Administrator",
           displayName: "System Administrator",
           timezone: "UTC",
           country: "US",
@@ -50,6 +56,6 @@ export async function ensureSuperAdmin(): Promise<{ id: string; email: string }>
     },
   });
 
-  console.log(`[AdminInit] Seeded super_admin: ${admin.email}`);
+  console.log(`[AdminInit] Initialized administrator account: ${admin.email}`);
   return { id: admin.id, email: admin.email };
 }

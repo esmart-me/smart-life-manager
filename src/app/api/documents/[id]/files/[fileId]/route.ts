@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, isAdmin } from "@/lib/auth/session";
+
 import { prisma } from "@/lib/db/prisma";
 import { readDocumentFile, deleteDocumentFile } from "@/lib/storage/document-storage";
 
@@ -30,8 +31,8 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Strict Security Authorization: A user must NEVER access another user's files!
-    if (docFile.userId !== user.id) {
+    // Strict Security Authorization: Customer B is blocked; Administrator inspecting Customer A's account has permission.
+    if (docFile.userId !== user.id && !isAdmin(user.role)) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Access denied" } },
         { status: 403 }
@@ -93,7 +94,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       );
     }
 
-    if (docFile.userId !== user.id) {
+    if (docFile.userId !== user.id && !isAdmin(user.role)) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Access denied" } },
         { status: 403 }
