@@ -17,10 +17,11 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { PlanTier } from "@/lib/plans/constants";
+import { PlanTier, PlanFeature } from "@/lib/plans/constants";
 import { UserPlanSummary } from "@/lib/plans/plan-service";
 
 interface PlanItem {
@@ -42,7 +43,7 @@ interface PlanItem {
   allowAiAssistant: boolean;
   allowMultiDeviceSync: boolean;
   isPopular: boolean;
-  features: string[];
+  features: (PlanFeature | string)[];
 }
 
 export function PremiumScreenClient() {
@@ -478,12 +479,40 @@ export function PremiumScreenClient() {
                     Included Capabilities
                   </p>
                   <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
+                    {plan.features.map((featureItem, idx) => {
+                      const name =
+                        typeof featureItem === "string"
+                          ? featureItem
+                          : featureItem?.name || "";
+                      const isIncluded =
+                        typeof featureItem === "string"
+                          ? true
+                          : featureItem?.included !== false;
+                      const isHighlight =
+                        typeof featureItem === "object"
+                          ? Boolean(featureItem?.highlight)
+                          : false;
+
+                      return (
+                        <li
+                          key={idx}
+                          className={`flex items-start gap-2 ${
+                            isIncluded
+                              ? isHighlight
+                                ? "text-slate-900 dark:text-white font-semibold"
+                                : "text-slate-600 dark:text-slate-300"
+                              : "text-slate-400 dark:text-slate-500 line-through opacity-60"
+                          }`}
+                        >
+                          {isIncluded ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                          ) : (
+                            <X className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                          )}
+                          <span>{name}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </div>
