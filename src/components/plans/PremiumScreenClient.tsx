@@ -10,19 +10,17 @@ import {
   FileText,
   Download,
   Bot,
-  Zap,
   RefreshCw,
-  Sliders,
   AlertCircle,
   CheckCircle2,
-  Clock,
-  ArrowRight,
-  X,
+  Globe,
+  ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { PlanTier, PlanFeature } from "@/lib/plans/constants";
 import { UserPlanSummary } from "@/lib/plans/plan-service";
+import { RegionDefinition, formatRegionalCurrency } from "@/lib/regions";
 
 interface PlanItem {
   id: string;
@@ -32,6 +30,8 @@ interface PlanItem {
   monthlyPrice: number;
   yearlyPrice: number;
   currency: string;
+  currencySymbol: string;
+  regionCode?: string;
   maxDocuments: number;
   maxVehicles: number;
   maxFamilyMembers: number;
@@ -52,34 +52,30 @@ export function PremiumScreenClient() {
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(true);
   const [updatingTier, setUpdatingTier] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<RegionDefinition | null>(null);
+  const [supportedRegions, setSupportedRegions] = useState<RegionDefinition[]>([]);
+  const [isChangingRegion, setIsChangingRegion] = useState(false);
   const [notification, setNotification] = useState<{
     type: "success" | "error" | "info";
     message: string;
   } | null>(null);
 
-  // Admin pricing configurator state
-  const [showAdminConfig, setShowAdminConfig] = useState(false);
-  const [adminSelectedPlan, setAdminSelectedPlan] = useState<PlanTier>("premium");
-  const [adminMonthlyPrice, setAdminMonthlyPrice] = useState("9.99");
-  const [adminYearlyPrice, setAdminYearlyPrice] = useState("89.99");
-  const [adminCurrency, setAdminCurrency] = useState("USD");
-  const [adminMaxDocs, setAdminMaxDocs] = useState("5");
-  const [adminMaxVehicles, setAdminMaxVehicles] = useState("1");
-  const [adminSaving, setAdminSaving] = useState(false);
-
-  const fetchStatusAndPlans = async () => {
+  const fetchStatusAndPlans = async (regionCode?: string) => {
     try {
       setLoading(true);
+      const url = regionCode ? `/api/plans?region=${regionCode}` : "/api/plans";
       const [plansRes, subRes] = await Promise.all([
-        fetch("/api/plans"),
+        fetch(url),
         fetch("/api/subscription/current"),
       ]);
 
       const plansData = await plansRes.json();
       const subData = await subRes.json();
 
-      if (plansData.success && plansData.data?.plans) {
-        setPlans(plansData.data.plans);
+      if (plansData.success && plansData.data) {
+        setPlans(plansData.data.plans || []);
+        setSelectedRegion(plansData.data.selectedRegion || null);
+        setSupportedRegions(plansData.data.supportedRegions || []);
       }
 
       if (subData.success && subData.data?.summary) {
@@ -103,17 +99,28 @@ export function PremiumScreenClient() {
     fetchStatusAndPlans();
   }, []);
 
-  // Update admin form when selected plan changes
-  useEffect(() => {
-    const target = plans.find((p) => p.plan === adminSelectedPlan);
-    if (target) {
-      setAdminMonthlyPrice(String(target.monthlyPrice));
-      setAdminYearlyPrice(String(target.yearlyPrice));
-      setAdminCurrency(target.currency);
-      setAdminMaxDocs(String(target.maxDocuments));
-      setAdminMaxVehicles(String(target.maxVehicles));
+  const handleRegionChange = async (newCountryCode: string) => {
+    try {
+      setIsChangingRegion(true);
+      // Persist in user profile & cookie
+      await fetch("/api/user/region", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ countryCode: newCountryCode }),
+      });
+
+      // Reload regional prices
+      await fetchStatusAndPlans(newCountryCode);
+      setNotification({
+        type: "info",
+        message: `Region changed to ${newCountryCode}. Pricing updated.`,
+      });
+    } catch (err) {
+      console.error("Error changing region:", err);
+    } finally {
+      setIsChangingRegion(false);
     }
-  }, [adminSelectedPlan, plans]);
+  };
 
   const handleSimulatePlanChange = async (targetPlan: PlanTier) => {
     try {
@@ -126,6 +133,7 @@ export function PremiumScreenClient() {
         body: JSON.stringify({
           plan: targetPlan,
           billingInterval,
+          regionCode: selectedRegion?.countryCode || "US",
         }),
       });
 
@@ -153,51 +161,6 @@ export function PremiumScreenClient() {
     }
   };
 
-  const handleSaveAdminConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setAdminSaving(true);
-      const res = await fetch("/api/plans/admin", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan: adminSelectedPlan,
-          updates: {
-            monthlyPrice: parseFloat(adminMonthlyPrice) || 0,
-            yearlyPrice: parseFloat(adminYearlyPrice) || 0,
-            currency: adminCurrency.toUpperCase().trim(),
-            maxDocuments: parseInt(adminMaxDocs, 10),
-            maxVehicles: parseInt(adminMaxVehicles, 10),
-          },
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setPlans(data.data.plans);
-        setNotification({
-          type: "success",
-          message: `Configurable pricing for ${adminSelectedPlan.toUpperCase()} updated in database!`,
-        });
-        // Refresh user summary
-        fetchStatusAndPlans();
-      } else {
-        setNotification({
-          type: "error",
-          message: data.error?.message || "Failed to update plan configuration.",
-        });
-      }
-    } catch (err) {
-      console.error("Admin save error:", err);
-      setNotification({
-        type: "error",
-        message: "Failed to save plan configuration.",
-      });
-    } finally {
-      setAdminSaving(false);
-    }
-  };
-
   const activePlanKey = summary?.plan || "free";
 
   return (
@@ -206,13 +169,13 @@ export function PremiumScreenClient() {
       <div className="text-center space-y-3 pt-2">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-300 text-xs font-semibold">
           <Sparkles className="w-3.5 h-3.5 text-brand-500" />
-          <span>Monetization & Subscription Architecture</span>
+          <span>Monetization & Regional Pricing</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           Supercharge Your Smart Life Manager
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-          Choose the ideal plan for your individual journey or family household. Pricing is dynamically configured and stored in the database.
+          Choose the ideal plan for your individual journey or family household. Pricing is dynamically configured per region in local currency.
         </p>
 
         {/* Live Status Notification */}
@@ -243,10 +206,40 @@ export function PremiumScreenClient() {
           </div>
         )}
 
-        {/* Current Plan Overview Card */}
+        {/* Region & Multi-Currency Switcher Banner */}
+        <div className="inline-flex flex-wrap items-center justify-center gap-2.5 p-2 px-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs text-xs">
+          <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+            <Globe className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+            <span className="font-medium">Region & Currency:</span>
+          </div>
+
+          <div className="relative inline-block">
+            <select
+              value={selectedRegion?.countryCode || "US"}
+              onChange={(e) => handleRegionChange(e.target.value)}
+              disabled={isChangingRegion}
+              className="appearance-none pl-3 pr-8 py-1.5 font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 text-xs"
+            >
+              {supportedRegions.map((reg) => (
+                <option key={reg.countryCode} value={reg.countryCode}>
+                  {reg.flag} {reg.country} — {reg.currencyCode} ({reg.currencySymbol})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+          </div>
+
+          {selectedRegion && (
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">
+              Prices displayed in {selectedRegion.currency} ({selectedRegion.currencySymbol})
+            </span>
+          )}
+        </div>
+
+        {/* Current User Active Plan Overview */}
         {summary && (
-          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs max-w-2xl mx-auto text-left">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="max-w-2xl mx-auto p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs text-left space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
                   Current Active Plan
@@ -263,7 +256,7 @@ export function PremiumScreenClient() {
               <div className="text-left sm:text-right">
                 <span className="text-xs text-slate-400 dark:text-slate-500">Billing Cycle</span>
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 capitalize">
-                  {summary.billingInterval} ({summary.pricing.currency}{" "}
+                  {summary.billingInterval} ({selectedRegion?.currencyCode || summary.pricing.currency}{" "}
                   {summary.billingInterval === "yearly"
                     ? summary.pricing.yearlyPrice
                     : summary.pricing.monthlyPrice}
@@ -273,7 +266,7 @@ export function PremiumScreenClient() {
             </div>
 
             {/* Current Resource Usage Meters */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1">
@@ -383,9 +376,15 @@ export function PremiumScreenClient() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
           const isCurrent = activePlanKey === plan.plan;
-          const price =
+          const rawPrice =
             billingInterval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
           const displayPeriod = billingInterval === "yearly" ? "/year" : "/month";
+
+          const formattedPrice = formatRegionalCurrency(
+            rawPrice,
+            plan.currency,
+            selectedRegion?.locale
+          );
 
           return (
             <div
@@ -419,20 +418,21 @@ export function PremiumScreenClient() {
                   {plan.description}
                 </p>
 
-                {/* Price Display */}
+                {/* Regional Price Display */}
                 <div className="mt-4 mb-6">
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">
-                      {plan.currency === "USD" ? "$" : `${plan.currency} `}
-                      {price}
+                      {rawPrice === 0 ? "Free" : formattedPrice}
                     </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      {displayPeriod}
-                    </span>
+                    {rawPrice > 0 && (
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        {displayPeriod}
+                      </span>
+                    )}
                   </div>
-                  {billingInterval === "yearly" && plan.monthlyPrice > 0 && (
+                  {billingInterval === "yearly" && rawPrice > 0 && (
                     <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
-                      Billed annually (equivalent to ${(plan.yearlyPrice / 12).toFixed(2)}/mo)
+                      Billed annually (approx. {formatRegionalCurrency(rawPrice / 12, plan.currency, selectedRegion?.locale)}/mo)
                     </p>
                   )}
                 </div>
@@ -451,21 +451,21 @@ export function PremiumScreenClient() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Car className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <Car className="w-3.5 h-3.5 text-brand-500 shrink-0" />
                     <span>
                       {plan.maxVehicles === -1 ? (
                         <strong>Unlimited</strong>
                       ) : (
-                        <strong>{plan.maxVehicles}</strong>
+                        <strong>Up to {plan.maxVehicles}</strong>
                       )}{" "}
-                      Vehicles tracked
+                      Vehicles
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <Users className="w-3.5 h-3.5 text-brand-500 shrink-0" />
                     <span>
-                      {plan.maxFamilyMembers === 1 ? (
-                        "Single-user profile"
+                      {plan.maxFamilyMembers === 0 ? (
+                        <span className="text-slate-400">Single User Account</span>
                       ) : (
                         <strong>Up to {plan.maxFamilyMembers} Family Members</strong>
                       )}
@@ -474,42 +474,39 @@ export function PremiumScreenClient() {
                 </div>
 
                 {/* Feature Checklist */}
-                <div className="mt-4 space-y-2.5">
-                  <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    Included Capabilities
-                  </p>
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    {plan.features.map((featureItem, idx) => {
-                      const name =
-                        typeof featureItem === "string"
-                          ? featureItem
-                          : featureItem?.name || "";
-                      const isIncluded =
-                        typeof featureItem === "string"
-                          ? true
-                          : featureItem?.included !== false;
-                      const isHighlight =
-                        typeof featureItem === "object"
-                          ? Boolean(featureItem?.highlight)
-                          : false;
+                <div className="mt-5 space-y-2.5">
+                  <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Included Features
+                  </span>
+                  <ul className="space-y-2 text-xs">
+                    {plan.features.map((feature, idx) => {
+                      const featName = typeof feature === "string" ? feature : feature.name;
+                      const featIncluded = typeof feature === "string" ? true : feature.included;
+                      const featHighlight = typeof feature === "string" ? false : Boolean(feature.highlight);
 
                       return (
                         <li
                           key={idx}
                           className={`flex items-start gap-2 ${
-                            isIncluded
-                              ? isHighlight
-                                ? "text-slate-900 dark:text-white font-semibold"
-                                : "text-slate-600 dark:text-slate-300"
-                              : "text-slate-400 dark:text-slate-500 line-through opacity-60"
+                            featIncluded
+                              ? "text-slate-700 dark:text-slate-200"
+                              : "text-slate-400 dark:text-slate-600 line-through"
                           }`}
                         >
-                          {isIncluded ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                          ) : (
-                            <X className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
-                          )}
-                          <span>{name}</span>
+                          <div
+                            className={`mt-0.5 p-0.5 rounded-full shrink-0 ${
+                              featIncluded
+                                ? featHighlight
+                                  ? "bg-brand-100 dark:bg-brand-950/80 text-brand-600 dark:text-brand-400"
+                                  : "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                            }`}
+                          >
+                            <Check className="w-3 h-3" />
+                          </div>
+                          <span className={featHighlight ? "font-semibold text-brand-700 dark:text-brand-300" : ""}>
+                            {featName}
+                          </span>
                         </li>
                       );
                     })}
@@ -518,35 +515,24 @@ export function PremiumScreenClient() {
               </div>
 
               {/* Action Button */}
-              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="mt-8 pt-4">
                 {isCurrent ? (
                   <Button
                     variant="outline"
-                    className="w-full justify-center text-xs font-semibold cursor-default opacity-80"
+                    className="w-full justify-center text-xs font-semibold py-2.5 bg-slate-50 dark:bg-slate-800 cursor-default"
                     disabled
                   >
-                    Active Plan
+                    Current Active Plan
                   </Button>
                 ) : (
                   <Button
-                    variant={plan.isPopular ? "primary" : "outline"}
-                    className="w-full justify-center text-xs font-semibold gap-1.5"
+                    variant={plan.isPopular ? "primary" : "secondary"}
+                    className="w-full justify-center text-xs font-semibold py-2.5"
                     disabled={updatingTier !== null}
+                    isLoading={updatingTier === plan.plan}
                     onClick={() => handleSimulatePlanChange(plan.plan)}
                   >
-                    {updatingTier === plan.plan ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Activating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>
-                          {plan.plan === "free" ? "Downgrade to Free" : `Switch to ${plan.name}`}
-                        </span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </>
-                    )}
+                    {plan.plan === "free" ? "Downgrade to Free" : `Select ${plan.name}`}
                   </Button>
                 )}
               </div>
@@ -555,149 +541,25 @@ export function PremiumScreenClient() {
         })}
       </div>
 
-      {/* Monetization Architecture Notice */}
-      <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 flex items-start gap-3">
-        <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-        <div className="space-y-1 text-xs">
-          <p className="font-semibold text-amber-900 dark:text-amber-200">
-            Subscription Architecture Mode (Safe Development Simulation)
-          </p>
-          <p className="text-amber-700 dark:text-amber-300">
-            In accordance with specifications, live payment processing gateways (Stripe/PayPal) are not connected yet. Selecting a tier simulates instant tier activation in the local database, allowing you to test limits, family sharing, and feature flags seamlessly.
-          </p>
-        </div>
-      </div>
-
-      {/* Admin Configurable Pricing Section */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
-        <button
-          type="button"
-          onClick={() => setShowAdminConfig(!showAdminConfig)}
-          className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <Sliders className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-            <div>
-              <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Admin Pricing & Limits Configurator
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Verify dynamic pricing architecture: modify plan costs or limits in the database without code changes.
-              </p>
-            </div>
+      {/* Trust & Guarantee Banner */}
+      <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/60 dark:to-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+            <Shield className="w-6 h-6" />
           </div>
-          <span className="text-xs font-semibold text-brand-600 dark:text-brand-400">
-            {showAdminConfig ? "Collapse" : "Open Editor"}
-          </span>
-        </button>
-
-        {showAdminConfig && (
-          <form
-            onSubmit={handleSaveAdminConfig}
-            className="p-5 border-t border-slate-200 dark:border-slate-800 space-y-4 bg-slate-50/50 dark:bg-slate-900/50"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Target Plan Tier
-                </label>
-                <select
-                  value={adminSelectedPlan}
-                  onChange={(e) => setAdminSelectedPlan(e.target.value as PlanTier)}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                >
-                  <option value="free">Free Tier</option>
-                  <option value="premium">Life Pro Premium</option>
-                  <option value="family">Family Circle Plus</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Monthly Price
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={adminMonthlyPrice}
-                  onChange={(e) => setAdminMonthlyPrice(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Yearly Price
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={adminYearlyPrice}
-                  onChange={(e) => setAdminYearlyPrice(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Currency Code
-                </label>
-                <input
-                  type="text"
-                  maxLength={4}
-                  value={adminCurrency}
-                  onChange={(e) => setAdminCurrency(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Max Documents (-1 for Unlimited)
-                </label>
-                <input
-                  type="number"
-                  value={adminMaxDocs}
-                  onChange={(e) => setAdminMaxDocs(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Max Vehicles (-1 for Unlimited)
-                </label>
-                <input
-                  type="number"
-                  value={adminMaxVehicles}
-                  onChange={(e) => setAdminMaxVehicles(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={adminSaving}
-                className="text-xs font-semibold gap-1.5"
-              >
-                {adminSaving ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving to Database...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Update Plan Configuration</span>
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        )}
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+              No Risk. Cancel or Switch Plans Anytime.
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Live payment processing is in test sandbox mode. Your data remains completely safe and private.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <RefreshCw className="w-4 h-4 text-brand-500" />
+          <span>Instant Activation</span>
+        </div>
       </div>
     </div>
   );

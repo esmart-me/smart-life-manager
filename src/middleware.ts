@@ -21,15 +21,23 @@ export function middleware(request: NextRequest) {
   const isExactRoot = pathname === "/";
   const isProtected = isExactRoot || PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
+  const isAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
 
-  // 1. If trying to access protected route without session -> immediate HTTP 307 redirect to /login
+  // 1. If trying to access admin portal without session -> redirect to /admin/login
+  if (isAdminRoute && !sessionCookie) {
+    const adminLoginUrl = new URL("/admin/login", request.url);
+    adminLoginUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(adminLoginUrl);
+  }
+
+  // 2. If trying to access protected customer route without session -> immediate HTTP 307 redirect to /login
   if (isProtected && !sessionCookie) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // 2. If logged in and trying to visit login/register -> redirect to dashboard
+  // 3. If logged in and trying to visit login/register -> redirect to dashboard
   if (isAuthRoute && sessionCookie) {
     return NextResponse.redirect(new URL("/", request.url));
   }

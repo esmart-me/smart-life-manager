@@ -1,6 +1,6 @@
 // Smart Life Manager - Core TypeScript Types & DTOs
 
-export type UserRole = "user" | "admin";
+export type UserRole = "customer" | "user" | "admin" | "super_admin";
 
 export interface SessionUser {
   id: string;
@@ -9,6 +9,9 @@ export interface SessionUser {
   displayName?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  country?: string | null;
+  region?: string | null;
+  currency?: string | null;
 }
 
 export interface AuthTokenPayload {

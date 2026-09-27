@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { APP_CONFIG } from "@/lib/constants";
-import { AuthTokenPayload, SessionUser } from "@/types";
+import { AuthTokenPayload, SessionUser, UserRole } from "@/types";
 import { prisma } from "@/lib/db/prisma";
 
 const SECRET_KEY = new TextEncoder().encode(
@@ -15,7 +15,7 @@ const SECRET_KEY = new TextEncoder().encode(
 export async function createSessionToken(user: {
   id: string;
   email: string;
-  role: "user" | "admin";
+  role: UserRole;
 }): Promise<string> {
   return new SignJWT({
     sub: user.id,
@@ -39,7 +39,7 @@ export async function verifySessionToken(
     return {
       sub: payload.sub as string,
       email: payload.email as string,
-      role: (payload.role as "user" | "admin") || "user",
+      role: (payload.role as UserRole) || "customer",
       iat: payload.iat,
       exp: payload.exp,
     };
@@ -104,13 +104,16 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     return {
       id: user.id,
       email: user.email,
-      role: user.role as "user" | "admin",
+      role: (user.role as UserRole) || "customer",
       displayName:
         user.profile?.displayName ||
         `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
         user.email.split("@")[0],
       firstName: user.profile?.firstName,
       lastName: user.profile?.lastName,
+      country: user.profile?.country || "US",
+      region: user.profile?.region || "US",
+      currency: user.profile?.currency || "USD",
     };
   } catch (error: unknown) {
     if (
@@ -129,12 +132,46 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 }
 
 /**
+ * Checks if a given role is an administrative role.
+ */
+export function isAdmin(role?: string | null): boolean {
+  return role === "admin" || role === "super_admin";
+}
+
+/**
  * Requires an authenticated user. Redirects to /login if unauthenticated.
  */
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
+  }
+  return user;
+}
+
+/**
+ * Requires an authenticated administrator (admin or super_admin).
+ * Redirects to /admin/login if not authenticated or not an admin.
+ */
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/admin/login");
+  }
+  if (!isAdmin(user.role)) {
+    // If authenticated as a customer, redirect to forbidden or /admin/login?error=unauthorized
+    redirect("/admin/login?error=forbidden");
+  }
+  return user;
+}
+
+/**
+ * Requires a super_admin user.
+ */
+export async function requireSuperAdmin(): Promise<SessionUser> {
+  const user = await requireAdmin();
+  if (user.role !== "super_admin") {
+    redirect("/admin?error=super_admin_required");
   }
   return user;
 }

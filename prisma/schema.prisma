@@ -42,6 +42,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   userSubscription UserSubscription?
   ownedFamilyGroups FamilyGroup[]
+  adminAuditLogs    AdminAuditLog[]
+  billingTransactions BillingTransaction[]
 
   @@index([email])
 }
@@ -88,6 +90,8 @@ model Profile {
   avatarUrl   String?
   phoneNumber String?
   timezone    String   @default("UTC")
+  country     String?  @default("US")
+  region      String?  @default("US")
   currency    String   @default("USD")
   locale      String   @default("en-US")
   createdAt   DateTime @default(now())
@@ -444,5 +448,71 @@ model FamilyGroupMember {
 
   @@index([familyGroupId])
   @@index([userId])
+}
+
+// -------------------------------------------------------------
+// 16. Regional Pricing Catalog
+// -------------------------------------------------------------
+model PlanRegionalPricing {
+  id             String   @id @default(cuid())
+  plan           String   // "free" | "premium" | "family"
+  regionCode     String   // "IN" | "AE" | "US" | "GB" | "EU" | "SA" | "QA" | "KW" | "OM" | "BH"
+  country        String
+  currency       String
+  currencySymbol String
+  monthlyPrice   Float    @default(0.0)
+  yearlyPrice    Float    @default(0.0)
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([plan, regionCode])
+  @@index([regionCode])
+  @@index([plan])
+}
+
+// -------------------------------------------------------------
+// 17. Billing & Payment Transactions (Subscription Ledger)
+// -------------------------------------------------------------
+model BillingTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            String   // "free" | "premium" | "family"
+  amount          Float
+  currency        String   @default("USD")
+  status          String   @default("paid") // "paid" | "failed" | "pending" | "refunded" | "cancelled"
+  paymentProvider String   @default("sandbox") // "stripe_test" | "paypal_test" | "sandbox" | "manual"
+  transactionId   String   @unique
+  billingCycle    String   @default("monthly") // "monthly" | "yearly"
+  paymentDate     DateTime @default(now())
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([transactionId])
+  @@index([paymentDate])
+}
+
+// -------------------------------------------------------------
+// 18. Admin Audit Log (Security & Activity Trail)
+// -------------------------------------------------------------
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  adminEmail String
+  action     String   // "admin_login" | "plan_price_change" | "plan_toggled" | "customer_data_cleared" | "subscription_override" | "role_change"
+  targetType String?  // "plan" | "user" | "subscription" | "payment" | "system"
+  targetId   String?
+  details    String?  // JSON string
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
 }
 

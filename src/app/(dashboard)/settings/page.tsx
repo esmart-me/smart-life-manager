@@ -10,15 +10,19 @@ export default async function SettingsPage() {
     include: {
       profile: true,
       settings: true,
+      userSubscription: true,
     },
   });
 
   const initialProfile = {
+    email: user.email,
     firstName: userRecord?.profile?.firstName || "",
     lastName: userRecord?.profile?.lastName || "",
     displayName: userRecord?.profile?.displayName || user.email.split("@")[0],
     phoneNumber: userRecord?.profile?.phoneNumber || "",
     timezone: userRecord?.profile?.timezone || "UTC",
+    country: userRecord?.profile?.country || "US",
+    region: userRecord?.profile?.region || "US",
     currency: userRecord?.profile?.currency || "USD",
   };
 
@@ -31,20 +35,27 @@ export default async function SettingsPage() {
     securityAlerts: userRecord?.settings?.securityAlerts ?? true,
   };
 
+  const subscriptionInfo = {
+    plan: userRecord?.userSubscription?.plan || "free",
+    status: userRecord?.userSubscription?.status || "active",
+    billingInterval: userRecord?.userSubscription?.billingInterval || "monthly",
+  };
+
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto pb-16">
       <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Settings & Preferences
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Account Settings & Preferences
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Customize your display theme, notification preferences, and account profile.
+          Manage your personal profile, regional currency, notification alerts, subscription, and data controls.
         </p>
       </div>
 
       <SettingsForm
         initialProfile={initialProfile}
         initialSettings={initialSettings}
+        subscriptionInfo={subscriptionInfo}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { getRegion } from "@/lib/regions";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -48,8 +49,13 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { profile, settings } = body;
 
+    let selectedRegionCode = "US";
+
     // Scoped update for profile
     if (profile) {
+      const reg = getRegion(profile.country || profile.region || profile.currency);
+      selectedRegionCode = reg.countryCode;
+
       await prisma.profile.upsert({
         where: { userId: user.id },
         update: {
@@ -58,7 +64,10 @@ export async function PUT(request: Request) {
           displayName: profile.displayName,
           phoneNumber: profile.phoneNumber,
           timezone: profile.timezone,
-          currency: profile.currency,
+          country: profile.country || reg.countryCode,
+          region: profile.region || reg.countryCode,
+          currency: profile.currency || reg.currencyCode,
+          locale: reg.locale,
         },
         create: {
           userId: user.id,
@@ -67,7 +76,10 @@ export async function PUT(request: Request) {
           displayName: profile.displayName,
           phoneNumber: profile.phoneNumber,
           timezone: profile.timezone || "UTC",
-          currency: profile.currency || "USD",
+          country: profile.country || reg.countryCode,
+          region: profile.region || reg.countryCode,
+          currency: profile.currency || reg.currencyCode,
+          locale: reg.locale,
         },
       });
     }
@@ -96,10 +108,20 @@ export async function PUT(request: Request) {
       });
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       success: true,
       message: "Settings updated successfully",
     });
+
+    if (profile) {
+      res.cookies.set("slm_region", selectedRegionCode, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+      });
+    }
+
+    return res;
   } catch (error) {
     console.error("[Settings Update Error]:", error);
     return NextResponse.json(
