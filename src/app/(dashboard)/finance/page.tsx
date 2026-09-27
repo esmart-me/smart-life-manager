@@ -23,7 +23,7 @@ export default async function FinancePage() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Finance & Bills
             </h1>
-            <Badge variant="outline">Phase 1 Foundation</Badge>
+            <Badge variant="outline">Planned for Upcoming Phase</Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Track upcoming bill due dates, expenses, subscriptions, and financial peace of mind.
@@ -34,11 +34,11 @@ export default async function FinancePage() {
           <button
             type="button"
             disabled
-            title="Module will be active in Phase 2"
+            title="Module will be active in an upcoming phase"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600/50 text-white cursor-not-allowed"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Record Entry (Phase 2)</span>
+            <span>Record Entry (Planned)</span>
           </button>
         </div>
       </div>
@@ -47,8 +47,8 @@ export default async function FinancePage() {
         <div className="space-y-6">
           <EmptyState
             icon={Wallet}
-            title="Financial Vault Ready"
-            description="No bills, expenses, or subscriptions recorded. In Phase 2, this module will track your payment schedules, recurring subscriptions, and expense categories with zero fake data."
+            title="Finance & Ledger is Planned for an Upcoming Phase"
+            description="In an upcoming phase, this module will provide complete payment schedules, ledger tracking, and recurring bill reminders. For now, payments and expenses can be logged directly from the Dashboard Quick Actions."
           />
 
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
