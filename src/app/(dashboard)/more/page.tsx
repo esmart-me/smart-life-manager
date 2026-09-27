@@ -11,6 +11,7 @@ import {
   RefreshCw,
   BarChart3,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
@@ -51,6 +52,14 @@ export default async function MorePage() {
           variant: "success" as const,
         },
         {
+          title: "Plans & Pricing",
+          description: "Manage your subscription tier, billing interval, and unlock premium features",
+          href: "/premium",
+          icon: Sparkles,
+          badge: "Upgrade",
+          variant: "success" as const,
+        },
+        {
           title: "Account & Settings",
           description: "Theme preferences, notifications, security, and profile details",
           href: "/settings",
@@ -87,18 +96,13 @@ export default async function MorePage() {
           badge: "Active",
           variant: "success" as const,
         },
-      ],
-    },
-    {
-      title: "Upcoming Modules",
-      items: [
         {
           title: "Family Circle",
-          description: "Family member profiles, emergency medical information, and document sharing",
+          description: "Household profiles, shared records, and granular role-based permissions",
           href: "/more/family",
           icon: Users,
-          badge: "Planned for Future Phase",
-          variant: "outline" as const,
+          badge: "Active",
+          variant: "success" as const,
         },
       ],
     },

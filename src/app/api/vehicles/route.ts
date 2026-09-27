@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { calculateVehicleAlerts, syncVehicleReminders } from "@/lib/vehicles/status";
+import { checkFeatureAccess } from "@/lib/plans/plan-service";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -76,6 +77,27 @@ export async function POST(request: Request) {
     const cleanInsurance = insuranceExpiry ? new Date(insuranceExpiry) : null;
     const cleanRegistration = registrationExpiry ? new Date(registrationExpiry) : null;
     const cleanServiceDate = nextServiceDate ? new Date(nextServiceDate) : null;
+
+    // Check plan limits
+    const isStrict =
+      request.headers.get("x-strict-limits") === "true" ||
+      new URL(request.url).searchParams.get("strict") === "true";
+    const accessCheck = await checkFeatureAccess(user.id, "create_vehicle", { strict: isStrict });
+    if (!accessCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "LIMIT_REACHED",
+            message: accessCheck.reason,
+            requiredPlan: accessCheck.requiredPlan,
+            currentCount: accessCheck.currentCount,
+            maxLimit: accessCheck.maxLimit,
+          },
+        },
+        { status: 403 }
+      );
+    }
 
     const vehicle = await prisma.vehicle.create({
       data: {

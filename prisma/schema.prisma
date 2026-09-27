@@ -40,6 +40,8 @@ model User {
   notifications Notification[]
   sessions      Session[]
   passwordResetTokens PasswordResetToken[]
+  userSubscription UserSubscription?
+  ownedFamilyGroups FamilyGroup[]
 
   @@index([email])
 }
@@ -359,3 +361,88 @@ model Notification {
   @@index([userId])
   @@index([isRead])
 }
+
+// -------------------------------------------------------------
+// 14. Subscription Tiers & Billing Architecture
+// -------------------------------------------------------------
+model UserSubscription {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan               String    @default("free") // "free" | "premium" | "family"
+  status             String    @default("active") // "active" | "past_due" | "cancelled" | "trialing"
+  billingInterval    String    @default("monthly") // "monthly" | "yearly"
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  trialEndsAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([plan])
+}
+
+// Configurable Plan Catalog (Admin-modifiable without code deployments)
+model PlanConfig {
+  id                        String   @id @default(cuid())
+  plan                      String   @unique // "free" | "premium" | "family"
+  name                      String
+  description               String?
+  monthlyPrice              Float    @default(0.0)
+  yearlyPrice               Float    @default(0.0)
+  currency                  String   @default("USD")
+  maxDocuments              Int      @default(5) // -1 for unlimited
+  maxVehicles               Int      @default(1) // -1 for unlimited
+  maxFamilyMembers          Int      @default(0) // e.g. 6 for family plan
+  allowAdvancedReports      Boolean  @default(false)
+  allowExports              Boolean  @default(false)
+  allowSubscriptionTracking Boolean  @default(false)
+  allowCloudBackup          Boolean  @default(false)
+  allowCustomRecurrence     Boolean  @default(false)
+  allowAiAssistant          Boolean  @default(false)
+  allowMultiDeviceSync      Boolean  @default(false)
+  isPopular                 Boolean  @default(false)
+  isActive                  Boolean  @default(true)
+  updatedAt                 DateTime @updatedAt
+
+  @@index([plan])
+}
+
+// -------------------------------------------------------------
+// 15. Family Group & Permission Sharing
+// -------------------------------------------------------------
+model FamilyGroup {
+  id        String              @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members   FamilyGroupMember[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([ownerId])
+}
+
+model FamilyGroupMember {
+  id               String      @id @default(cuid())
+  familyGroupId    String
+  familyGroup      FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+  userId           String?     // Linked user ID if member has an account
+  name             String
+  email            String?
+  role             String      @default("Member") // "Owner" | "Admin" | "Member" | "View Only"
+  canViewDocuments Boolean     @default(true)
+  canEditDocuments Boolean     @default(false)
+  canViewFinance   Boolean     @default(false)
+  canEditFinance   Boolean     @default(false)
+  canViewVehicles  Boolean     @default(true)
+  canEditVehicles  Boolean     @default(false)
+  status           String      @default("active") // "active" | "invited" | "pending"
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([familyGroupId])
+  @@index([userId])
+}
+

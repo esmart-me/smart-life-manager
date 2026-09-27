@@ -18,6 +18,7 @@ import {
   RefreshCw,
   BarChart3,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { DESKTOP_NAV_ITEMS, DESKTOP_SECONDARY_NAV } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Users,
   Settings,
   User,
+  Sparkles,
 };
 
 interface DesktopSidebarProps {
@@ -149,6 +151,24 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
             })}
           </nav>
         </div>
+      </div>
+
+      {/* Monetization Upgrade Card */}
+      <div className="px-3 pb-2">
+        <Link
+          href="/premium"
+          className="block p-3 rounded-xl bg-gradient-to-br from-brand-50 to-indigo-50/60 dark:from-brand-950/40 dark:to-indigo-950/30 border border-brand-200/80 dark:border-brand-800/60 hover:border-brand-400 dark:hover:border-brand-600 transition-all group"
+        >
+          <div className="flex items-center gap-1.5 mb-1">
+            <Sparkles className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 group-hover:rotate-12 transition-transform" />
+            <span className="text-[11px] font-bold text-brand-800 dark:text-brand-300">
+              Upgrade to Life Pro
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+            Unlimited docs, family sharing & cloud sync
+          </p>
+        </Link>
       </div>
 
       {/* User Footer Profile & Logout */}

@@ -11,6 +11,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   DEFAULT_REMINDER_DAYS,
 } from "@/lib/documents/constants";
+import { checkFeatureAccess } from "@/lib/plans/plan-service";
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -229,6 +230,27 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+    }
+
+    // Evaluate subscription plan limits
+    const isStrict =
+      request.headers.get("x-strict-limits") === "true" ||
+      new URL(request.url).searchParams.get("strict") === "true";
+    const accessCheck = await checkFeatureAccess(user.id, "create_document", { strict: isStrict });
+    if (!accessCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "LIMIT_REACHED",
+            message: accessCheck.reason,
+            requiredPlan: accessCheck.requiredPlan,
+            currentCount: accessCheck.currentCount,
+            maxLimit: accessCheck.maxLimit,
+          },
+        },
+        { status: 403 }
+      );
     }
 
     // Create Document record

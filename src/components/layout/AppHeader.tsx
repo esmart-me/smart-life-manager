@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ShieldCheck, LogOut, Search } from "lucide-react";
+import { ShieldCheck, LogOut, Search, Sparkles } from "lucide-react";
 import { SessionUser } from "@/types";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearchModal } from "@/components/search/GlobalSearchModal";
@@ -100,6 +100,14 @@ export function AppHeader({ user, title }: AppHeaderProps) {
           </div>
 
           <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+            <Link
+              href="/premium"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 hover:bg-brand-100 transition-colors"
+              title="View Subscription Plans"
+            >
+              <Sparkles className="w-3 h-3 text-brand-500" />
+              <span>Plans</span>
+            </Link>
             <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
               {user.displayName || user.email}
             </span>

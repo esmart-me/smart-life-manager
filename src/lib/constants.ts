@@ -32,6 +32,7 @@ export const DESKTOP_NAV_ITEMS: NavItem[] = [
 ];
 
 export const DESKTOP_SECONDARY_NAV: NavItem[] = [
+  { label: "Plans & Pricing", href: "/premium", iconName: "Sparkles" },
   { label: "My Profile", href: "/profile", iconName: "User" },
   { label: "Settings", href: "/settings", iconName: "Settings" },
 ];
