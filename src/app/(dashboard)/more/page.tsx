@@ -19,6 +19,14 @@ export default async function MorePage() {
       title: "System & Profile",
       items: [
         {
+          title: "My Profile",
+          description: "Name, email, currency, time zone, and notification preferences",
+          href: "/profile",
+          icon: Users,
+          badge: "Active",
+          variant: "success" as const,
+        },
+        {
           title: "Account & Settings",
           description: "Theme preferences, notifications, security, and profile details",
           href: "/settings",

@@ -53,12 +53,14 @@ export async function verifySessionToken(
  */
 export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
+  const expires = new Date(Date.now() + APP_CONFIG.sessionMaxAge * 1000);
   cookieStore.set(APP_CONFIG.cookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: APP_CONFIG.sessionMaxAge,
+    expires,
   });
 }
 

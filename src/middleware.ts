@@ -8,10 +8,11 @@ const PROTECTED_PREFIXES = [
   "/finance",
   "/more",
   "/settings",
+  "/profile",
 ];
 
 // Public auth paths (redirect to dashboard if already logged in)
-const AUTH_ROUTES = ["/login", "/register"];
+const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -92,6 +92,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
+        message: "Your account was created successfully.",
         data: {
           user: {
             id: user.id,

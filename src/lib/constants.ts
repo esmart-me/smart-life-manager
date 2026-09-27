@@ -5,7 +5,7 @@ export const APP_CONFIG = {
   tagline: "Never miss an important expiry date, payment, or life event.",
   version: "0.1.0",
   cookieName: "slm_session",
-  sessionMaxAge: 60 * 60 * 24 * 7, // 7 days in seconds
+  sessionMaxAge: 60 * 60 * 24 * 30, // 30 days in seconds (persistent session)
 };
 
 // Main Mobile Navigation (Home, Documents, Reminders, Finance, More)
@@ -29,6 +29,7 @@ export const DESKTOP_NAV_ITEMS: NavItem[] = [
 ];
 
 export const DESKTOP_SECONDARY_NAV: NavItem[] = [
+  { label: "My Profile", href: "/profile", iconName: "User" },
   { label: "Settings", href: "/settings", iconName: "Settings" },
 ];
 

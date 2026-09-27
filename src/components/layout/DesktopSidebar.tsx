@@ -11,6 +11,7 @@ import {
   Calendar,
   Users,
   Settings,
+  User,
   ShieldCheck,
   LogOut,
   LucideIcon,
@@ -29,6 +30,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Calendar,
   Users,
   Settings,
+  User,
 };
 
 interface DesktopSidebarProps {
@@ -146,14 +148,18 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
       {/* User Footer Profile & Logout */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
         <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-2xs">
-          <div className="min-w-0 pr-2">
-            <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
+          <Link
+            href="/profile"
+            className="min-w-0 pr-2 flex-1 group"
+            title="View Profile"
+          >
+            <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
               {user.displayName || "My Account"}
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
               {user.email}
             </p>
-          </div>
+          </Link>
           <button
             type="button"
             onClick={handleLogout}

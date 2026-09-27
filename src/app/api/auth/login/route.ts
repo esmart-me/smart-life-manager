@@ -31,7 +31,10 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password" },
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "We couldn’t sign you in. Please check your email and password.",
+          },
         },
         { status: 401 }
       );
@@ -42,7 +45,10 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password" },
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "We couldn’t sign you in. Please check your email and password.",
+          },
         },
         { status: 401 }
       );
