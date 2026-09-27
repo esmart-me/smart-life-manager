@@ -46,14 +46,14 @@ export function AppHeader({ user, title }: AppHeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 h-16 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-20 h-16 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
         {/* Mobile Brand / Page Title */}
-        <div className="flex items-center gap-3">
-          <Link href="/" className="lg:hidden flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shadow-xs">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Link href="/" className="lg:hidden flex items-center gap-1.5 sm:gap-2">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shadow-xs shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <span className="font-semibold text-sm text-slate-900 dark:text-white">
+            <span className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate max-w-[80px] sm:max-w-none">
               Smart Life
             </span>
           </Link>
@@ -66,7 +66,7 @@ export function AppHeader({ user, title }: AppHeaderProps) {
         </div>
 
         {/* Global Search Bar (Quick Command Palette Trigger) */}
-        <div className="flex-1 max-w-md mx-2 sm:mx-4">
+        <div className="flex-1 max-w-md mx-1 sm:mx-4 min-w-0">
           <button
             type="button"
             onClick={() => setIsSearchOpen(true)}

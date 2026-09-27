@@ -181,16 +181,14 @@ export function ExpenseFormModal({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setErrorMessage(data.error?.message || "Failed to save expense.");
-        setIsSubmitting(false);
-        return;
+        throw new Error(data.error?.message || "Failed to save expense.");
       }
 
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("[ExpenseForm Submit Error]:", err);
-      setErrorMessage("Network error occurred. Please try again.");
+      setErrorMessage(err instanceof Error ? err.message : "Network error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

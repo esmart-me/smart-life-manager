@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, FilePlus, BellPlus, CreditCard, Receipt, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -24,7 +24,7 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
 
   // Form states
   const [docTitle, setDocTitle] = useState("");
-  const [docCategory, setDocCategory] = useState("identity");
+  const [docCategory, setDocCategory] = useState("Passport");
   const [docExpiryDate, setDocExpiryDate] = useState("");
   const [docNumber, setDocNumber] = useState("");
 
@@ -43,6 +43,13 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
   const [expAmount, setExpAmount] = useState("");
   const [expCategory, setExpCategory] = useState("Food");
   const [expSpentAt, setExpSpentAt] = useState(new Date().toISOString().split("T")[0]);
+
+  useEffect(() => {
+    if (type) {
+      setErrorMessage(null);
+      setIsLoading(false);
+    }
+  }, [type]);
 
   if (!type) return null;
 
@@ -106,7 +113,9 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
       onClose();
       router.refresh();
     } catch (err: unknown) {
+      console.error("[QuickCreateModal Submit Error]:", err);
       setErrorMessage(err instanceof Error ? err.message : "Failed to save entry");
+    } finally {
       setIsLoading(false);
     }
   };

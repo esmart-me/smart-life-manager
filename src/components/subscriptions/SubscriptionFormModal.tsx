@@ -217,7 +217,7 @@ export function SubscriptionFormModal({
                   placeholder="0.00"
                   value={cost}
                   onChange={(e) => setCost(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
             </div>
@@ -230,7 +230,7 @@ export function SubscriptionFormModal({
                 type="text"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold uppercase text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] font-semibold uppercase text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
           </div>
@@ -246,7 +246,7 @@ export function SubscriptionFormModal({
                 required
                 value={nextBillingDate}
                 onChange={(e) => setNextBillingDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
 
@@ -257,7 +257,7 @@ export function SubscriptionFormModal({
               <select
                 value={billingCycle}
                 onChange={(e) => setBillingCycle(e.target.value as SubscriptionBillingCycle)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 {SUBSCRIPTION_BILLING_CYCLES.map((cycle) => (
                   <option key={cycle.value} value={cycle.value}>
@@ -277,7 +277,7 @@ export function SubscriptionFormModal({
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as SubscriptionCategory)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 {SUBSCRIPTION_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -294,7 +294,7 @@ export function SubscriptionFormModal({
               <select
                 value={renewalStatus}
                 onChange={(e) => setRenewalStatus(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value="active">Active (Auto-renew)</option>
                 <option value="cancelled">Cancelled</option>

@@ -65,6 +65,12 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formInitialData, setFormInitialData] = useState<DocumentFormData | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
 
   const [detailDoc, setDetailDoc] = useState<DocumentDetailData | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -149,6 +155,7 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
       method: "DELETE",
     });
     if (res.ok) {
+      showToast("Document deleted successfully.");
       router.refresh();
     }
   };
@@ -569,6 +576,7 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSuccess={() => {
+          showToast(formInitialData?.id ? "Document updated successfully!" : "Document saved successfully!");
           router.refresh();
         }}
         initialData={formInitialData}
@@ -584,6 +592,18 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
           await handleDelete(id);
         }}
       />
+
+      {/* Floating Success Toast */}
+      {successToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-emerald-600 dark:bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-xl transition-all animate-in slide-in-from-bottom duration-200"
+        >
+          <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+          <span className="text-sm font-semibold tracking-tight">{successToast}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Upload,
@@ -47,20 +47,16 @@ export function DocumentFormModal({
   const isEditing = Boolean(initialData?.id);
 
   // Form states
-  const [title, setTitle] = useState(initialData?.title || "");
-  const [category, setCategory] = useState(initialData?.category || "Passport");
-  const [documentNumber, setDocumentNumber] = useState(initialData?.documentNumber || "");
-  const [issuedBy, setIssuedBy] = useState(initialData?.issuedBy || "");
-  const [issueDate, setIssueDate] = useState(
-    initialData?.issueDate ? initialData.issueDate.split("T")[0] : ""
-  );
-  const [expiryDate, setExpiryDate] = useState(
-    initialData?.expiryDate ? initialData.expiryDate.split("T")[0] : ""
-  );
-  const [notes, setNotes] = useState(initialData?.notes || "");
-  const [selectedMilestones, setSelectedMilestones] = useState<number[]>(
-    initialData?.reminderMilestones || [...DEFAULT_REMINDER_DAYS]
-  );
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("Passport");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [issuedBy, setIssuedBy] = useState("");
+  const [issueDate, setIssueDate] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [selectedMilestones, setSelectedMilestones] = useState<number[]>([
+    ...DEFAULT_REMINDER_DAYS,
+  ]);
 
   // File uploads
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -73,6 +69,45 @@ export function DocumentFormModal({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Synchronize and reset form state whenever modal opens or initialData changes
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setTitle(initialData.title || "");
+        setCategory(initialData.category || "Passport");
+        setDocumentNumber(initialData.documentNumber || "");
+        setIssuedBy(initialData.issuedBy || "");
+        setIssueDate(
+          initialData.issueDate ? initialData.issueDate.split("T")[0] : ""
+        );
+        setExpiryDate(
+          initialData.expiryDate ? initialData.expiryDate.split("T")[0] : ""
+        );
+        setNotes(initialData.notes || "");
+        setSelectedMilestones(
+          initialData.reminderMilestones || [...DEFAULT_REMINDER_DAYS]
+        );
+      } else {
+        // Reset to clean default values for new document
+        setTitle("");
+        setCategory("Passport");
+        setDocumentNumber("");
+        setIssuedBy("");
+        setIssueDate("");
+        setExpiryDate("");
+        setNotes("");
+        setSelectedMilestones([...DEFAULT_REMINDER_DAYS]);
+      }
+      setImageFile(null);
+      setPdfFile(null);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+      setErrorMessage(null);
+      setIsSubmitting(false);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -149,8 +184,9 @@ export function DocumentFormModal({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err.message || "Something went wrong saving the document.");
+    } catch (err: unknown) {
+      console.error("[DocumentForm Submit Error]:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong saving the document.");
     } finally {
       setIsSubmitting(false);
     }

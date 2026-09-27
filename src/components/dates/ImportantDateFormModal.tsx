@@ -185,7 +185,7 @@ export function ImportantDateFormModal({
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as ImportantDateCategory)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full px-3 py-2 text-base sm:text-sm min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 {IMPORTANT_DATE_CATEGORIES.map((cat) => (
                   <option key={cat.value} value={cat.value}>
@@ -204,7 +204,7 @@ export function ImportantDateFormModal({
                 required
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full px-3 py-2 text-base sm:text-sm min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
           </div>
@@ -218,7 +218,7 @@ export function ImportantDateFormModal({
               <select
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full px-3 py-2 text-base sm:text-sm min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 <option value="yearly">Every Year (Yearly Milestone)</option>
                 <option value="monthly">Every Month</option>
@@ -233,7 +233,7 @@ export function ImportantDateFormModal({
               <select
                 value={reminderDaysBefore}
                 onChange={(e) => setReminderDaysBefore(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full px-3 py-2 text-base sm:text-sm min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 <option value="0">On the exact day</option>
                 <option value="1">1 day before</option>

@@ -162,7 +162,7 @@ export function BudgetConfigModal({
                     placeholder="0.00"
                     value={monthlyIncome}
                     onChange={(e) => setMonthlyIncome(e.target.value)}
-                    className="w-full pl-11 pr-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full pl-11 pr-2.5 py-2 min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </div>
@@ -172,7 +172,7 @@ export function BudgetConfigModal({
                   Monthly Budget
                 </label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-2 text-xs font-semibold text-slate-400">
+                  <span className="absolute left-2.5 top-2.5 text-xs font-semibold text-slate-400">
                     {userCurrency}
                   </span>
                   <input
@@ -182,7 +182,7 @@ export function BudgetConfigModal({
                     placeholder="0.00"
                     value={monthlyBudget}
                     onChange={(e) => setMonthlyBudget(e.target.value)}
-                    className="w-full pl-11 pr-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full pl-11 pr-2.5 py-2 min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </div>
@@ -192,7 +192,7 @@ export function BudgetConfigModal({
                   Savings Target
                 </label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-2 text-xs font-semibold text-slate-400">
+                  <span className="absolute left-2.5 top-2.5 text-xs font-semibold text-slate-400">
                     {userCurrency}
                   </span>
                   <input
@@ -202,7 +202,7 @@ export function BudgetConfigModal({
                     placeholder="0.00"
                     value={savingsTarget}
                     onChange={(e) => setSavingsTarget(e.target.value)}
-                    className="w-full pl-11 pr-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full pl-11 pr-2.5 py-2 min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </div>
@@ -243,7 +243,7 @@ export function BudgetConfigModal({
                           [cat]: e.target.value,
                         })
                       }
-                      className="w-full pl-10 pr-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500 text-right"
+                      className="w-full pl-10 pr-2 py-1.5 min-h-[38px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500 text-right"
                     />
                   </div>
                 </div>

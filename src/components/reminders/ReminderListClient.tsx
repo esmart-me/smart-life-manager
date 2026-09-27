@@ -56,6 +56,12 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedReminder, setSelectedReminder] = useState<ReminderFormData | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
 
   // Optimistic completion state map
   const [completingIds, setCompletingIds] = useState<Record<string, boolean>>({});
@@ -125,6 +131,7 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
       });
 
       if (res.ok) {
+        showToast(isCompleted ? "Reminder marked incomplete." : "Reminder completed!");
         router.refresh();
       }
     } catch (err) {
@@ -141,6 +148,7 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
         method: "DELETE",
       });
       if (res.ok) {
+        showToast("Reminder deleted successfully.");
         router.refresh();
       }
     }
@@ -461,10 +469,23 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSuccess={() => {
+          showToast(selectedReminder?.id ? "Reminder updated successfully!" : "Reminder created successfully!");
           router.refresh();
         }}
         initialData={selectedReminder}
       />
+
+      {/* Floating Success Toast */}
+      {successToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-emerald-600 dark:bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-xl transition-all animate-in slide-in-from-bottom duration-200"
+        >
+          <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+          <span className="text-sm font-semibold tracking-tight">{successToast}</span>
+        </div>
+      )}
     </div>
   );
 }

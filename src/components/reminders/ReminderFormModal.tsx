@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Bell,
@@ -58,54 +58,75 @@ export function ReminderFormModal({
 }: ReminderFormModalProps) {
   const isEditing = Boolean(initialData?.id);
 
-  // Parse initial date & time
-  let defaultDate = new Date().toISOString().split("T")[0];
-  let defaultTime = "09:00";
-  if (initialData?.dueDate) {
-    const d = new Date(initialData.dueDate);
-    if (!isNaN(d.getTime())) {
-      defaultDate = d.toISOString().split("T")[0];
-      defaultTime = d.toTimeString().slice(0, 5);
-    }
-  }
-
-  // Parse repeat
-  let initialRepeat: ReminderRepeatType = "one_time";
-  let initialInterval = 1;
-  let initialUnit = "weeks";
-
-  if (initialData?.recurrenceRule) {
-    const rule = initialData.recurrenceRule.toLowerCase();
-    if (rule === "daily") initialRepeat = "daily";
-    else if (rule === "weekly") initialRepeat = "weekly";
-    else if (rule === "monthly") initialRepeat = "monthly";
-    else if (rule === "yearly") initialRepeat = "yearly";
-    else if (rule.startsWith("custom:")) {
-      initialRepeat = "custom";
-      const parts = rule.split(":");
-      initialInterval = parseInt(parts[1], 10) || 1;
-      initialUnit = parts[2] || "weeks";
-    }
-  }
-
   // Form states
-  const [title, setTitle] = useState(initialData?.title || "");
-  const [description, setDescription] = useState(initialData?.description || "");
-  const [date, setDate] = useState(initialData?.date || defaultDate);
-  const [time, setTime] = useState(initialData?.time || defaultTime);
-  const [repeat, setRepeat] = useState<ReminderRepeatType>(initialRepeat);
-  const [customInterval, setCustomInterval] = useState(initialInterval);
-  const [customUnit, setCustomUnit] = useState(initialUnit);
-  const [category, setCategory] = useState<ReminderCategory>(
-    (initialData?.category as ReminderCategory) || "general"
-  );
-  const [priority, setPriority] = useState<ReminderPriority>(
-    (initialData?.priority as ReminderPriority) || "medium"
-  );
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("09:00");
+  const [repeat, setRepeat] = useState<ReminderRepeatType>("one_time");
+  const [customInterval, setCustomInterval] = useState(1);
+  const [customUnit, setCustomUnit] = useState("weeks");
+  const [category, setCategory] = useState<ReminderCategory>("general");
+  const [priority, setPriority] = useState<ReminderPriority>("medium");
   const [notificationPreference, setNotificationPreference] = useState<NotificationPreference>("both");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Synchronize and reset form whenever modal opens or initialData changes
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setTitle(initialData.title || "");
+        setDescription(initialData.description || "");
+
+        if (initialData.dueDate) {
+          const d = new Date(initialData.dueDate);
+          if (!isNaN(d.getTime())) {
+            setDate(d.toISOString().split("T")[0]);
+            setTime(d.toTimeString().slice(0, 5));
+          }
+        } else {
+          setDate(initialData.date || new Date().toISOString().split("T")[0]);
+          setTime(initialData.time || "09:00");
+        }
+
+        if (initialData.recurrenceRule) {
+          const rule = initialData.recurrenceRule.toLowerCase();
+          if (rule === "daily") setRepeat("daily");
+          else if (rule === "weekly") setRepeat("weekly");
+          else if (rule === "monthly") setRepeat("monthly");
+          else if (rule === "yearly") setRepeat("yearly");
+          else if (rule.startsWith("custom:")) {
+            setRepeat("custom");
+            const parts = rule.split(":");
+            setCustomInterval(parseInt(parts[1], 10) || 1);
+            setCustomUnit(parts[2] || "weeks");
+          }
+        } else {
+          setRepeat((initialData.repeat as ReminderRepeatType) || "one_time");
+        }
+
+        setCategory((initialData.category as ReminderCategory) || "general");
+        setPriority((initialData.priority as ReminderPriority) || "medium");
+        setNotificationPreference((initialData.notificationPreference as NotificationPreference) || "both");
+      } else {
+        // Reset to clean default values for new reminder
+        setTitle("");
+        setDescription("");
+        setDate(new Date().toISOString().split("T")[0]);
+        setTime("09:00");
+        setRepeat("one_time");
+        setCustomInterval(1);
+        setCustomUnit("weeks");
+        setCategory("general");
+        setPriority("medium");
+        setNotificationPreference("both");
+      }
+      setErrorMessage(null);
+      setIsSubmitting(false);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -159,8 +180,9 @@ export function ReminderFormModal({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err.message || "Something went wrong saving the reminder.");
+    } catch (err: unknown) {
+      console.error("[ReminderForm Submit Error]:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong saving the reminder.");
     } finally {
       setIsSubmitting(false);
     }

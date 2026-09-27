@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { PieChart, CreditCard, Receipt, Plus, Settings, RefreshCw } from "lucide-react";
+import { PieChart, CreditCard, Receipt, Plus, Settings, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BudgetStatusInfo } from "@/lib/finance/calculations";
 import { BudgetOverviewTab } from "./BudgetOverviewTab";
@@ -35,6 +35,12 @@ export function FinanceShellClient({
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
 
   // Modals state
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -200,7 +206,10 @@ export function FinanceShellClient({
       <PaymentFormModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
-        onSuccess={handleRefresh}
+        onSuccess={() => {
+          showToast(selectedPayment?.id ? "Payment updated successfully!" : "Payment recorded successfully!");
+          handleRefresh();
+        }}
         initialData={selectedPayment}
         userCurrency={userCurrency}
       />
@@ -208,7 +217,10 @@ export function FinanceShellClient({
       <ExpenseFormModal
         isOpen={isExpenseModalOpen}
         onClose={() => setIsExpenseModalOpen(false)}
-        onSuccess={handleRefresh}
+        onSuccess={() => {
+          showToast(selectedExpense?.id ? "Expense updated successfully!" : "Expense recorded successfully!");
+          handleRefresh();
+        }}
         initialData={selectedExpense}
         userCurrency={userCurrency}
       />
@@ -216,10 +228,25 @@ export function FinanceShellClient({
       <BudgetConfigModal
         isOpen={isBudgetModalOpen}
         onClose={() => setIsBudgetModalOpen(false)}
-        onSuccess={handleRefresh}
+        onSuccess={() => {
+          showToast("Budget settings updated successfully!");
+          handleRefresh();
+        }}
         initialBudgets={initialBudgets}
         userCurrency={userCurrency}
       />
+
+      {/* Floating Success Toast */}
+      {successToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-emerald-600 dark:bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-xl transition-all animate-in slide-in-from-bottom duration-200"
+        >
+          <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+          <span className="text-sm font-semibold tracking-tight">{successToast}</span>
+        </div>
+      )}
     </div>
   );
 }

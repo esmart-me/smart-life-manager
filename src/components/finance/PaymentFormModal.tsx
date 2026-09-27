@@ -137,16 +137,14 @@ export function PaymentFormModal({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setErrorMessage(data.error?.message || "Failed to save payment.");
-        setIsSubmitting(false);
-        return;
+        throw new Error(data.error?.message || "Failed to save payment.");
       }
 
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("[PaymentForm Submit Error]:", err);
-      setErrorMessage("Network error occurred. Please try again.");
+      setErrorMessage(err instanceof Error ? err.message : "Network error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -337,7 +335,7 @@ export function PaymentFormModal({
             <Button
               type="submit"
               size="sm"
-              disabled={isSubmitting}
+              isLoading={isSubmitting}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               {isSubmitting ? "Saving..." : isEditing ? "Update Payment" : "Save Payment"}
