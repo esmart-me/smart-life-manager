@@ -26,10 +26,12 @@ export interface SubscriptionDTO {
   currency: string;
   price: number;
   billingInterval: string;
+  billingCycle?: string;
   status: string;
   startDate: string;
   currentPeriodEnd: string | null;
   paymentProvider: string;
+  providerSubscriptionId?: string | null;
 }
 
 interface SubscriptionsClientProps {
@@ -181,32 +183,36 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950/80 text-[11px] uppercase tracking-wider text-slate-400 font-semibold border-b border-slate-800">
               <tr>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Plan & Tier</th>
-                <th className="py-3 px-4">Region & Currency</th>
-                <th className="py-3 px-4">Billing Cycle</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Next Renewal</th>
-                <th className="py-3 px-4">Actions</th>
+                <th className="py-3 px-3">Customer</th>
+                <th className="py-3 px-3">Email</th>
+                <th className="py-3 px-3">Plan</th>
+                <th className="py-3 px-3">Billing Cycle</th>
+                <th className="py-3 px-3">Amount</th>
+                <th className="py-3 px-3">Status</th>
+                <th className="py-3 px-3">Start Date</th>
+                <th className="py-3 px-3">Next Renewal</th>
+                <th className="py-3 px-3">Payment Provider</th>
+                <th className="py-3 px-3">Subscription ID</th>
+                <th className="py-3 px-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                  <td colSpan={11} className="py-8 text-center text-slate-500">
                     No subscriptions matching the filters.
                   </td>
                 </tr>
               ) : (
                 filtered.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="font-semibold text-white">{s.customerName}</p>
-                        <p className="text-[11px] text-slate-400 font-mono">{s.customerEmail}</p>
-                      </div>
+                    <td className="py-3 px-3 font-semibold text-white">
+                      {s.customerName}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 font-mono text-[11px] text-slate-400">
+                      {s.customerEmail}
+                    </td>
+                    <td className="py-3 px-3">
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                           s.plan === "family"
@@ -219,15 +225,13 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
                         {s.plan}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
-                      <span className="font-medium text-slate-300">
-                        {s.region} ({s.currency})
-                      </span>
+                    <td className="py-3 px-3 text-slate-300 capitalize">
+                      {s.billingCycle || s.billingInterval}
                     </td>
-                    <td className="py-3 px-4 text-slate-300 capitalize">
-                      {s.billingInterval} ({formatRegionalCurrency(s.price, s.currency)})
+                    <td className="py-3 px-3 font-bold text-white">
+                      {formatRegionalCurrency(s.price, s.currency)}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3">
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
                           s.status === "active"
@@ -242,18 +246,27 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
                         {s.status.replace("_", " ")}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-400 text-[11px]">
+                    <td className="py-3 px-3 text-slate-400 text-[11px]">
+                      {new Date(s.startDate).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-3 text-slate-400 text-[11px]">
                       {s.currentPeriodEnd
                         ? new Date(s.currentPeriodEnd).toLocaleDateString()
                         : "Continuous (Free)"}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 text-slate-400 capitalize text-[11px]">
+                      {s.paymentProvider === "stripe" ? "Stripe" : s.paymentProvider}
+                    </td>
+                    <td className="py-3 px-3 font-mono text-[10px] text-slate-500 truncate max-w-[130px]">
+                      {s.providerSubscriptionId || s.id}
+                    </td>
+                    <td className="py-3 px-3">
                       <Button
                         type="button"
                         variant="secondary"
                         size="sm"
                         onClick={() => handleOpenOverride(s)}
-                        className="text-indigo-400 hover:text-white bg-slate-800 hover:bg-slate-700 text-xs gap-1"
+                        className="text-indigo-400 hover:text-white bg-slate-800 hover:bg-slate-700 text-xs gap-1 py-1 px-2.5"
                       >
                         <Edit2 className="w-3 h-3" />
                         <span>Override</span>

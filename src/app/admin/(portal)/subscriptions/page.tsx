@@ -34,17 +34,21 @@ export default async function AdminSubscriptionsPage() {
         customerEmail: u.email,
         plan,
         region,
-        currency: priceInfo.currency,
-        price: priceInfo.amount,
+        currency: u.userSubscription?.currency || priceInfo.currency,
+        price: u.userSubscription?.amount || priceInfo.amount,
         billingInterval: interval,
+        billingCycle: u.userSubscription?.billingCycle || interval,
         status: u.userSubscription?.status || "active",
-        startDate: u.userSubscription?.currentPeriodStart
+        startDate: u.userSubscription?.startedAt
+          ? u.userSubscription.startedAt.toISOString()
+          : u.userSubscription?.currentPeriodStart
           ? u.userSubscription.currentPeriodStart.toISOString()
           : u.createdAt.toISOString(),
         currentPeriodEnd: u.userSubscription?.currentPeriodEnd
           ? u.userSubscription.currentPeriodEnd.toISOString()
           : null,
-        paymentProvider: "sandbox_manager",
+        paymentProvider: u.userSubscription?.provider || "stripe",
+        providerSubscriptionId: u.userSubscription?.providerSubscriptionId || null,
       };
     })
   );

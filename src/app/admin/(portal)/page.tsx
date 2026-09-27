@@ -125,7 +125,7 @@ export default async function AdminDashboardPage() {
 
   const kpis = [
     {
-      title: "Total Customers",
+      title: "Total Subscribers",
       value: totalCustomers.toLocaleString(),
       subtext: `${newCustomers} new in last 30 days`,
       icon: Users,
@@ -133,47 +133,39 @@ export default async function AdminDashboardPage() {
       bg: "bg-blue-950/40 border-blue-800/60",
     },
     {
-      title: "Active Customers",
+      title: "Active Subscribers",
       value: (activeCustomers > 0 ? activeCustomers : totalCustomers).toLocaleString(),
-      subtext: `${cancelledSubscriptions} cancelled`,
+      subtext: `${activeSubscriptions} paying, ${freeUsers} free`,
       icon: Activity,
       color: "text-emerald-400",
       bg: "bg-emerald-950/40 border-emerald-800/60",
     },
     {
-      title: "Active Paid Subscriptions",
-      value: activeSubscriptions.toLocaleString(),
-      subtext: `${premiumUsers} Pro, ${familyUsers} Family`,
-      icon: CreditCard,
-      color: "text-purple-400",
-      bg: "bg-purple-950/40 border-purple-800/60",
-    },
-    {
-      title: "Free Starter Tier",
+      title: "Free Users",
       value: freeUsers.toLocaleString(),
-      subtext: "Eligible for monetization conversion",
+      subtext: "Free Starter tier accounts",
       icon: Sparkles,
       color: "text-slate-400",
       bg: "bg-slate-900 border-slate-800",
     },
     {
-      title: "Successful Payments",
-      value: successfulPayments.toLocaleString(),
-      subtext: `${failedPayments} failed transaction attempts`,
-      icon: CheckCircle,
-      color: "text-emerald-400",
-      bg: "bg-emerald-950/40 border-emerald-800/60",
+      title: "Premium Users",
+      value: premiumUsers.toLocaleString(),
+      subtext: "Life Pro Premium active accounts",
+      icon: CreditCard,
+      color: "text-indigo-400",
+      bg: "bg-indigo-950/40 border-indigo-800/60",
     },
     {
-      title: "Failed Payments",
-      value: failedPayments.toLocaleString(),
-      subtext: failedPayments === 0 ? "Zero payment faults" : "Action required",
-      icon: XCircle,
-      color: failedPayments > 0 ? "text-rose-400" : "text-slate-400",
-      bg: failedPayments > 0 ? "bg-rose-950/40 border-rose-800/60" : "bg-slate-900 border-slate-800",
+      title: "Family Users",
+      value: familyUsers.toLocaleString(),
+      subtext: "Family Circle Plus active accounts",
+      icon: Users,
+      color: "text-purple-400",
+      bg: "bg-purple-950/40 border-purple-800/60",
     },
     {
-      title: "Monthly Revenue (MRR)",
+      title: "Monthly Recurring (MRR)",
       value: `$${estimatedMRR.toFixed(2)}`,
       subtext: "Based on active paying subscribers",
       icon: DollarSign,
@@ -181,12 +173,36 @@ export default async function AdminDashboardPage() {
       bg: "bg-amber-950/40 border-amber-800/60",
     },
     {
-      title: "Annual Run-Rate (ARR)",
+      title: "Annual Revenue (ARR)",
       value: `$${estimatedARR.toFixed(2)}`,
-      subtext: "Projected annual recurring",
+      subtext: "Projected annual recurring run-rate",
       icon: TrendingUp,
-      color: "text-indigo-400",
-      bg: "bg-indigo-950/40 border-indigo-800/60",
+      color: "text-cyan-400",
+      bg: "bg-cyan-950/40 border-cyan-800/60",
+    },
+    {
+      title: "Successful Payments",
+      value: successfulPayments.toLocaleString(),
+      subtext: `${totalRevenueUSD > 0 ? `$${totalRevenueUSD.toFixed(2)} total collected` : "0.00 collected"}`,
+      icon: CheckCircle,
+      color: "text-emerald-400",
+      bg: "bg-emerald-950/40 border-emerald-800/60",
+    },
+    {
+      title: "Failed Payments",
+      value: failedPayments.toLocaleString(),
+      subtext: failedPayments === 0 ? "Zero payment faults" : "Attention needed",
+      icon: XCircle,
+      color: failedPayments > 0 ? "text-rose-400" : "text-slate-400",
+      bg: failedPayments > 0 ? "bg-rose-950/40 border-rose-800/60" : "bg-slate-900 border-slate-800",
+    },
+    {
+      title: "Cancelled Subscriptions",
+      value: cancelledSubscriptions.toLocaleString(),
+      subtext: "Churned or non-renewing plans",
+      icon: XCircle,
+      color: cancelledSubscriptions > 0 ? "text-rose-400" : "text-slate-400",
+      bg: cancelledSubscriptions > 0 ? "bg-rose-950/40 border-rose-800/60" : "bg-slate-900 border-slate-800",
     },
   ];
 
@@ -221,8 +237,8 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Grid - 10 Core Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           return (

@@ -126,22 +126,18 @@ export async function updatePlanConfig(
  * Gets or initializes the user's subscription record.
  */
 export async function getUserSubscription(userId: string) {
-  let sub = await prisma.userSubscription.findUnique({
+  return prisma.userSubscription.upsert({
     where: { userId },
+    update: {},
+    create: {
+      userId,
+      plan: "free",
+      planName: "Free Starter",
+      status: "active",
+      billingInterval: "monthly",
+      billingCycle: "monthly",
+    },
   });
-
-  if (!sub) {
-    sub = await prisma.userSubscription.create({
-      data: {
-        userId,
-        plan: "free",
-        status: "active",
-        billingInterval: "monthly",
-      },
-    });
-  }
-
-  return sub;
 }
 
 /**

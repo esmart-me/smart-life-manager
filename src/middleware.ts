@@ -14,6 +14,19 @@ const PROTECTED_PREFIXES = [
 // Public auth paths (redirect to dashboard if already logged in)
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
+function getRoleFromSessionToken(token?: string): string | null {
+  if (!token) return null;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const jsonStr = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(jsonStr);
+    return payload.role || null;
+  } catch {
+    return null;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get(APP_CONFIG.cookieName)?.value;
@@ -23,11 +36,17 @@ export function middleware(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
   const isAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
 
-  // 1. If trying to access admin portal without session -> redirect to /admin/login
-  if (isAdminRoute && !sessionCookie) {
-    const adminLoginUrl = new URL("/admin/login", request.url);
-    adminLoginUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(adminLoginUrl);
+  // 1. If trying to access admin portal: require session and admin role
+  if (isAdminRoute) {
+    if (!sessionCookie) {
+      const adminLoginUrl = new URL("/admin/login", request.url);
+      adminLoginUrl.searchParams.set("from", pathname);
+      return NextResponse.redirect(adminLoginUrl);
+    }
+    const role = getRoleFromSessionToken(sessionCookie);
+    if (role !== "admin" && role !== "super_admin") {
+      return NextResponse.redirect(new URL("/admin/login?error=forbidden", request.url));
+    }
   }
 
   // 2. If trying to access protected customer route without session -> immediate HTTP 307 redirect to /login

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserPlanSummary, getUserSubscription } from "@/lib/plans/plan-service";
+import { prisma } from "@/lib/db/prisma";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -12,9 +13,14 @@ export async function GET() {
   }
 
   try {
-    const [summary, subscription] = await Promise.all([
+    const [summary, subscription, transactions] = await Promise.all([
       getUserPlanSummary(user.id),
       getUserSubscription(user.id),
+      prisma.billingTransaction.findMany({
+        where: { userId: user.id },
+        orderBy: { paymentDate: "desc" },
+        take: 10,
+      }),
     ]);
 
     return NextResponse.json({
@@ -22,6 +28,7 @@ export async function GET() {
       data: {
         summary,
         subscription,
+        transactions,
       },
     });
   } catch (error) {

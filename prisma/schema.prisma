@@ -370,21 +370,33 @@ model Notification {
 // 14. Subscription Tiers & Billing Architecture
 // -------------------------------------------------------------
 model UserSubscription {
-  id                 String    @id @default(cuid())
-  userId             String    @unique
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan               String    @default("free") // "free" | "premium" | "family"
-  status             String    @default("active") // "active" | "past_due" | "cancelled" | "trialing"
-  billingInterval    String    @default("monthly") // "monthly" | "yearly"
-  currentPeriodStart DateTime  @default(now())
-  currentPeriodEnd   DateTime?
-  cancelAtPeriodEnd  Boolean   @default(false)
-  trialEndsAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                     String                @id @default(cuid())
+  userId                 String                @unique
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                   String                @default("free") // "free" | "premium" | "family"
+  planName               String?               @default("Free Starter")
+  status                 String                @default("active") // "active" | "past_due" | "cancelled" | "trialing" | "incomplete"
+  billingInterval        String                @default("monthly") // "monthly" | "yearly"
+  billingCycle           String                @default("monthly") // "monthly" | "yearly"
+  amount                 Float                 @default(0.0)
+  currency               String                @default("USD")
+  provider               String                @default("stripe") // "stripe" | "sandbox"
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  providerPaymentId      String?
+  startedAt              DateTime              @default(now())
+  currentPeriodStart     DateTime              @default(now())
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean               @default(false)
+  cancelledAt            DateTime?
+  trialEndsAt            DateTime?
+  transactions           BillingTransaction[]
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
   @@index([userId])
   @@index([plan])
+  @@index([providerSubscriptionId])
 }
 
 // Configurable Plan Catalog (Admin-modifiable without code deployments)
@@ -475,22 +487,26 @@ model PlanRegionalPricing {
 // 17. Billing & Payment Transactions (Subscription Ledger)
 // -------------------------------------------------------------
 model BillingTransaction {
-  id              String   @id @default(cuid())
+  id              String            @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan            String   // "free" | "premium" | "family"
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId  String?
+  subscription    UserSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  plan            String            // "free" | "premium" | "family"
   amount          Float
-  currency        String   @default("USD")
-  status          String   @default("paid") // "paid" | "failed" | "pending" | "refunded" | "cancelled"
-  paymentProvider String   @default("sandbox") // "stripe_test" | "paypal_test" | "sandbox" | "manual"
-  transactionId   String   @unique
-  billingCycle    String   @default("monthly") // "monthly" | "yearly"
-  paymentDate     DateTime @default(now())
+  currency        String            @default("USD")
+  status          String            @default("paid") // "paid" | "failed" | "pending" | "refunded" | "cancelled"
+  paymentProvider String            @default("stripe") // "stripe" | "sandbox"
+  transactionId   String            @unique
+  billingCycle    String            @default("monthly") // "monthly" | "yearly"
+  paymentDate     DateTime          @default(now())
+  failureReason   String?
   notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@index([userId])
+  @@index([subscriptionId])
   @@index([status])
   @@index([transactionId])
   @@index([paymentDate])

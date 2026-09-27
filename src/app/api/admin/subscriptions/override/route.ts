@@ -26,15 +26,19 @@ export async function POST(req: NextRequest) {
       where: { userId },
     });
 
+    const planName = plan === "family" ? "Family Circle Plus" : plan === "premium" ? "Life Pro Premium" : "Free Starter";
+
     const updatedSub = await prisma.userSubscription.upsert({
       where: { userId },
       update: {
         plan,
+        planName,
         status,
       },
       create: {
         userId,
         plan,
+        planName,
         status,
         billingInterval: "monthly",
       },

@@ -35,10 +35,32 @@ export default async function SettingsPage() {
     securityAlerts: userRecord?.settings?.securityAlerts ?? true,
   };
 
+  const transactions = await prisma.billingTransaction.findMany({
+    where: { userId: user.id },
+    orderBy: { paymentDate: "desc" },
+    take: 10,
+  });
+
   const subscriptionInfo = {
     plan: userRecord?.userSubscription?.plan || "free",
+    planName:
+      userRecord?.userSubscription?.planName ||
+      (userRecord?.userSubscription?.plan === "family"
+        ? "Family Circle Plus"
+        : userRecord?.userSubscription?.plan === "premium"
+        ? "Life Pro Premium"
+        : "Free Starter"),
     status: userRecord?.userSubscription?.status || "active",
     billingInterval: userRecord?.userSubscription?.billingInterval || "monthly",
+    billingCycle: userRecord?.userSubscription?.billingCycle || userRecord?.userSubscription?.billingInterval || "monthly",
+    amount: userRecord?.userSubscription?.amount ?? 0,
+    currency: userRecord?.userSubscription?.currency || userRecord?.profile?.currency || "USD",
+    provider: userRecord?.userSubscription?.provider || "stripe",
+    startedAt: userRecord?.userSubscription?.startedAt?.toISOString() || userRecord?.createdAt?.toISOString() || new Date().toISOString(),
+    currentPeriodStart: userRecord?.userSubscription?.currentPeriodStart?.toISOString() || new Date().toISOString(),
+    currentPeriodEnd: userRecord?.userSubscription?.currentPeriodEnd?.toISOString() || null,
+    cancelAtPeriodEnd: Boolean(userRecord?.userSubscription?.cancelAtPeriodEnd),
+    cancelledAt: userRecord?.userSubscription?.cancelledAt?.toISOString() || null,
   };
 
   return (
@@ -56,6 +78,18 @@ export default async function SettingsPage() {
         initialProfile={initialProfile}
         initialSettings={initialSettings}
         subscriptionInfo={subscriptionInfo}
+        initialTransactions={transactions.map((t) => ({
+          id: t.id,
+          transactionId: t.transactionId,
+          plan: t.plan,
+          amount: t.amount,
+          currency: t.currency,
+          status: t.status,
+          billingCycle: t.billingCycle,
+          paymentDate: t.paymentDate.toISOString(),
+          paymentProvider: t.paymentProvider,
+          failureReason: t.failureReason,
+        }))}
       />
     </div>
   );

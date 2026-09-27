@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Check,
   Sparkles,
@@ -60,6 +61,8 @@ export function PremiumScreenClient() {
     message: string;
   } | null>(null);
 
+  const searchParams = useSearchParams();
+
   const fetchStatusAndPlans = async (regionCode?: string) => {
     try {
       setLoading(true);
@@ -83,6 +86,33 @@ export function PremiumScreenClient() {
         if (subData.data.summary.billingInterval) {
           setBillingInterval(subData.data.summary.billingInterval as "monthly" | "yearly");
         }
+
+        // Check if returning from checkout with payment parameter
+        const paymentParam = searchParams.get("payment");
+        if (paymentParam === "success") {
+          const currentSub = subData.data.subscription;
+          if (currentSub && currentSub.status === "active" && currentSub.plan !== "free") {
+            setNotification({
+              type: "success",
+              message: `Payment verified! Your ${currentSub.planName || currentSub.plan.toUpperCase()} subscription is now ACTIVE.`,
+            });
+          } else {
+            setNotification({
+              type: "info",
+              message: "Checkout received. Awaiting webhook payment confirmation from payment provider.",
+            });
+          }
+        } else if (paymentParam === "cancelled") {
+          setNotification({
+            type: "info",
+            message: "Payment checkout was cancelled. No charges were billed.",
+          });
+        } else if (paymentParam === "failed") {
+          setNotification({
+            type: "error",
+            message: "Payment transaction failed or card was declined. Please verify details and try again.",
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to load plans or subscription:", err);
@@ -97,7 +127,7 @@ export function PremiumScreenClient() {
 
   useEffect(() => {
     fetchStatusAndPlans();
-  }, []);
+  }, [searchParams]);
 
   const handleRegionChange = async (newCountryCode: string) => {
     try {
@@ -122,12 +152,12 @@ export function PremiumScreenClient() {
     }
   };
 
-  const handleSimulatePlanChange = async (targetPlan: PlanTier) => {
+  const handleSubscribe = async (targetPlan: PlanTier) => {
     try {
       setUpdatingTier(targetPlan);
       setNotification(null);
 
-      const res = await fetch("/api/subscription/simulate", {
+      const res = await fetch("/api/checkout/create-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,23 +168,30 @@ export function PremiumScreenClient() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        setSummary(data.data.summary);
-        setNotification({
-          type: "success",
-          message: `Plan changed to ${targetPlan.toUpperCase()} successfully! (Subscription architecture simulation)`,
-        });
+      if (data.success && data.data) {
+        if (data.data.isFree) {
+          // Free plan activated directly
+          await fetchStatusAndPlans();
+          setNotification({
+            type: "success",
+            message: "Free Starter plan activated successfully.",
+          });
+        } else if (data.data.url) {
+          // Redirect to Stripe Checkout (or Sandbox Simulator in test mode)
+          // DO NOT mark active here - provider webhook is source of truth!
+          window.location.href = data.data.url;
+        }
       } else {
         setNotification({
           type: "error",
-          message: data.error?.message || "Failed to switch plan tier.",
+          message: data.error?.message || "Failed to initiate payment checkout.",
         });
       }
     } catch (err) {
-      console.error("Error switching plan:", err);
+      console.error("Error initiating subscription checkout:", err);
       setNotification({
         type: "error",
-        message: "An unexpected error occurred while updating your subscription.",
+        message: "An unexpected error occurred while connecting to payment provider.",
       });
     } finally {
       setUpdatingTier(null);
@@ -530,9 +567,9 @@ export function PremiumScreenClient() {
                     className="w-full justify-center text-xs font-semibold py-2.5"
                     disabled={updatingTier !== null}
                     isLoading={updatingTier === plan.plan}
-                    onClick={() => handleSimulatePlanChange(plan.plan)}
+                    onClick={() => handleSubscribe(plan.plan)}
                   >
-                    {plan.plan === "free" ? "Downgrade to Free" : `Select ${plan.name}`}
+                    {plan.plan === "free" ? "Select Free Starter" : `Subscribe to ${plan.name}`}
                   </Button>
                 )}
               </div>

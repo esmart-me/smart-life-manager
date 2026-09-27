@@ -29,6 +29,7 @@ export default async function AdminPaymentsPage() {
     status: t.status,
     paymentProvider: t.paymentProvider,
     paymentDate: t.paymentDate.toISOString(),
+    failureReason: t.failureReason,
   }));
 
   return (

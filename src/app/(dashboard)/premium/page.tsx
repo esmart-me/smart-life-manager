@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { requireUser } from "@/lib/auth/session";
 import { PremiumScreenClient } from "@/components/plans/PremiumScreenClient";
 
@@ -9,5 +10,9 @@ export const metadata = {
 export default async function PremiumPage() {
   await requireUser();
 
-  return <PremiumScreenClient />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">Loading subscription pricing...</div>}>
+      <PremiumScreenClient />
+    </Suspense>
+  );
 }
