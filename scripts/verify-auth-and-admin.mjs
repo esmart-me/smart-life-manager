@@ -76,7 +76,7 @@ async function runTests() {
     // -------------------------------------------------------------
     console.log("--- SECTION 1: GOOGLE OAUTH ARCHITECTURE ---");
 
-    // 1. Google OAuth Status Check
+    let isConfigured = false;
     try {
       const res = await unauthClient.fetch("/api/auth/google/status");
       assert.strictEqual(res.status, 200, "Status route should return 200");
@@ -84,34 +84,50 @@ async function runTests() {
       assert.strictEqual(data.success, true);
       assert.strictEqual(data.data.provider, "google");
       assert.ok(data.data.redirectUri.includes("/api/auth/google/callback"), "Redirect URI must match callback");
+      isConfigured = data.data.configured;
       report("Google OAuth Status Endpoint", true, `Configured: ${data.data.configured}, URI: ${data.data.redirectUri}`);
     } catch (err) {
       report("Google OAuth Status Endpoint", false, err.message);
     }
 
-    // 2. Google OAuth Initiation without Credentials (JSON Request)
-    try {
-      const res = await unauthClient.fetch("/api/auth/google?format=json", {
-        headers: { Accept: "application/json" },
-      });
-      assert.strictEqual(res.status, 503, "Unconfigured OAuth should return 503");
-      const data = await res.json();
-      assert.strictEqual(data.error.code, "GOOGLE_OAUTH_NOT_CONFIGURED");
-      assert.ok(data.error.details.requiredEnv.includes("GOOGLE_CLIENT_ID"));
-      report("Google OAuth Unconfigured Safety Check (JSON)", true, "Proper 503 with setup instructions");
-    } catch (err) {
-      report("Google OAuth Unconfigured Safety Check (JSON)", false, err.message);
-    }
+    if (!isConfigured) {
+      // 2. Google OAuth Initiation without Credentials (JSON Request)
+      try {
+        const res = await unauthClient.fetch("/api/auth/google?format=json", {
+          headers: { Accept: "application/json" },
+        });
+        assert.strictEqual(res.status, 503, "Unconfigured OAuth should return 503");
+        const data = await res.json();
+        assert.strictEqual(data.error.code, "GOOGLE_OAUTH_NOT_CONFIGURED");
+        assert.ok(data.error.details.requiredEnv.includes("GOOGLE_CLIENT_ID"));
+        report("Google OAuth Unconfigured Safety Check (JSON)", true, "Proper 503 with setup instructions");
+      } catch (err) {
+        report("Google OAuth Unconfigured Safety Check (JSON)", false, err.message);
+      }
 
-    // 3. Google OAuth Initiation without Credentials (Browser Redirect)
-    try {
-      const res = await unauthClient.fetch("/api/auth/google");
-      assert.strictEqual(res.status, 307, "Browser navigation should redirect to login");
-      const location = res.headers.get("location") || "";
-      assert.ok(location.includes("error=google_not_configured"), "Redirect must contain error param");
-      report("Google OAuth Graceful Browser Redirect", true, `Redirected to ${location}`);
-    } catch (err) {
-      report("Google OAuth Graceful Browser Redirect", false, err.message);
+      // 3. Google OAuth Initiation without Credentials (Browser Redirect)
+      try {
+        const res = await unauthClient.fetch("/api/auth/google");
+        assert.strictEqual(res.status, 307, "Browser navigation should redirect to login");
+        const location = res.headers.get("location") || "";
+        assert.ok(location.includes("error=google_not_configured"), "Redirect must contain error param");
+        report("Google OAuth Graceful Browser Redirect", true, `Redirected to ${location}`);
+      } catch (err) {
+        report("Google OAuth Graceful Browser Redirect", false, err.message);
+      }
+    } else {
+      // 2 & 3. Google OAuth Initiation with Active Credentials (Browser Redirect)
+      try {
+        const res = await unauthClient.fetch("/api/auth/google");
+        assert.strictEqual(res.status, 307, "Initiation route should return 307 redirect to Google");
+        const location = res.headers.get("location") || "";
+        assert.ok(location.startsWith("https://accounts.google.com/o/oauth2/v2/auth"), "Redirects to accounts.google.com");
+        assert.ok(location.includes("client_id=798508967467"), "Includes clean client_id");
+        assert.ok(!location.includes("%22%22"), "Does not contain stray double quotes");
+        report("Google OAuth Initiation Redirect", true, "Redirects to accounts.google.com with sanitized client_id");
+      } catch (err) {
+        report("Google OAuth Initiation Redirect", false, err.message);
+      }
     }
 
     // -------------------------------------------------------------

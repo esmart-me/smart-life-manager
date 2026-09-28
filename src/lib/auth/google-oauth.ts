@@ -26,13 +26,18 @@ export interface OAuthStatePayload {
   timestamp: number;
 }
 
+function cleanEnvValue(val?: string): string {
+  if (!val) return "";
+  return val.trim().replace(/^["']+|["']+$/g, "").trim();
+}
+
 /**
  * Checks whether Google OAuth environment variables are properly set.
  * Validates that keys are non-empty and not dummy/placeholder values.
  */
 export function isGoogleOAuthConfigured(): boolean {
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const clientId = cleanEnvValue(process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = cleanEnvValue(process.env.GOOGLE_CLIENT_SECRET);
   return Boolean(
     clientId &&
     clientSecret &&
@@ -142,7 +147,7 @@ export function parseAndValidateOAuthState(
  * Generates the Google OAuth 2.0 authorization URL.
  */
 export function getGoogleAuthUrl(state?: string, req?: Request): string {
-  const clientId = process.env.GOOGLE_CLIENT_ID || "";
+  const clientId = cleanEnvValue(process.env.GOOGLE_CLIENT_ID);
   const redirectUri = getGoogleRedirectUri(req);
 
   const params = new URLSearchParams({
@@ -173,8 +178,8 @@ export async function exchangeGoogleCodeForTokens(
   expires_in?: number;
   token_type?: string;
 }> {
-  const clientId = process.env.GOOGLE_CLIENT_ID || "";
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+  const clientId = cleanEnvValue(process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = cleanEnvValue(process.env.GOOGLE_CLIENT_SECRET);
   const redirectUri = getGoogleRedirectUri(req);
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
