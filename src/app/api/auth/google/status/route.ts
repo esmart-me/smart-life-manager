@@ -4,9 +4,9 @@ import { isGoogleOAuthConfigured, getGoogleRedirectUri } from "@/lib/auth/google
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   const configured = isGoogleOAuthConfigured();
-  const redirectUri = getGoogleRedirectUri();
+  const redirectUri = getGoogleRedirectUri(request);
 
   return NextResponse.json({
     success: true,
@@ -17,7 +17,7 @@ export async function GET() {
       requiredEnvVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
       instructions: configured
         ? "Google OAuth 2.0 is active and ready."
-        : "Google OAuth credentials not found in environment. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable Google login.",
+        : "Google OAuth credentials not found in environment. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your environment variables to enable Google login.",
     },
   });
 }

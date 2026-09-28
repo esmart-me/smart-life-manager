@@ -30,7 +30,11 @@ export default function LoginPage() {
       setErrorMessage("Google OAuth is not configured yet. Please sign in with Email & Password or add Google credentials.");
       setShowGoogleModal(true);
     } else if (err === "google_auth_failed") {
-      setErrorMessage("Google authentication failed. Please try again or sign in with password.");
+      setErrorMessage("Google authentication could not be completed. Please try again or sign in with your email and password below.");
+    } else if (err === "google_access_denied") {
+      setErrorMessage("Google sign-in was cancelled. You can sign in with your email and password below.");
+    } else if (err === "google_invalid_state") {
+      setErrorMessage("Google sign-in session expired or security verification failed. Please try signing in again.");
     }
 
     const paramEmail = searchParams.get("email");
