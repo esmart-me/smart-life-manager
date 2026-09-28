@@ -11,6 +11,19 @@ export const INITIAL_ADMIN_EMAIL =
  * or by setting `ADMIN_EMAIL` and `ADMIN_INITIAL_PASSWORD` in the secure server environment.
  */
 export async function ensureSuperAdmin(): Promise<{ id: string; email: string }> {
+  // If specific ADMIN_EMAIL is designated in env, ensure that user has super_admin role
+  if (process.env.ADMIN_EMAIL) {
+    const designatedEmail = process.env.ADMIN_EMAIL.toLowerCase().trim();
+    const designatedUser = await prisma.user.findUnique({ where: { email: designatedEmail } });
+    if (designatedUser && designatedUser.role !== "super_admin") {
+      await prisma.user.update({
+        where: { id: designatedUser.id },
+        data: { role: "super_admin" },
+      });
+      console.log(`[AdminInit] Elevated designated administrator account: ${designatedUser.email}`);
+    }
+  }
+
   const existing = await prisma.user.findFirst({
     where: {
       role: { in: ["super_admin", "admin"] },
