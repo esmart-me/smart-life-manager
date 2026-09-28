@@ -33,6 +33,11 @@ export default function LoginPage() {
       setErrorMessage("Google authentication failed. Please try again or sign in with password.");
     }
 
+    const paramEmail = searchParams.get("email");
+    if (paramEmail && !email) {
+      setEmail(paramEmail);
+    }
+
     // Check Google OAuth status
     fetch("/api/auth/google/status")
       .then((res) => res.json())
@@ -55,30 +60,51 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      setErrorMessage("Please enter your email address.");
+      return;
+    }
+    if (!password) {
+      setErrorMessage("Please enter your password.");
+      return;
+    }
+
     setIsLoading(true);
 
+    let res: Response;
     try {
-      const res = await fetch("/api/auth/login", {
+      res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: trimmedEmail, password }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setErrorMessage(data.error?.message || "Invalid credentials. Please try again.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Successful login
-      router.push("/");
-      router.refresh();
     } catch {
-      setErrorMessage("Network error occurred. Please check your connection.");
+      setErrorMessage("Network error occurred. Unable to contact authentication server. Please check your connection.");
       setIsLoading(false);
+      return;
     }
+
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      setErrorMessage(`Server error (${res.status}). The service returned an invalid response. Please try again.`);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!res.ok || !data?.success) {
+      setErrorMessage(data?.error?.message || "Invalid credentials. Please try again.");
+      setPassword("");
+      setIsLoading(false);
+      return;
+    }
+
+    // Successful login
+    router.push("/");
+    router.refresh();
   };
 
   const handleGoogleSignIn = async () => {

@@ -54,9 +54,10 @@ export async function verifySessionToken(
 export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
   const expires = new Date(Date.now() + APP_CONFIG.sessionMaxAge * 1000);
+  const isHttps = process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ?? false;
   cookieStore.set(APP_CONFIG.cookieName, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && isHttps,
     sameSite: "lax",
     path: "/",
     maxAge: APP_CONFIG.sessionMaxAge,
@@ -69,9 +70,10 @@ export async function setSessionCookie(token: string): Promise<void> {
  */
 export async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
+  const isHttps = process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ?? false;
   cookieStore.set(APP_CONFIG.cookieName, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && isHttps,
     sameSite: "lax",
     path: "/",
     maxAge: 0,

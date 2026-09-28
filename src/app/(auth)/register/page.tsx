@@ -19,6 +19,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleStatus, setGoogleStatus] = useState<{
     configured: boolean;
@@ -47,46 +48,84 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setIsDuplicateEmail(false);
 
-    if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match");
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedFirstName) {
+      setErrorMessage("First name is required.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setErrorMessage("Please enter a valid email address.");
       return;
     }
 
     if (password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters long");
+      setErrorMessage("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match. Please re-enter your password.");
       return;
     }
 
     setIsLoading(true);
 
+    let res: Response;
     try {
-      const res = await fetch("/api/auth/register", {
+      res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
+          firstName: trimmedFirstName,
+          lastName: trimmedLastName,
+          email: trimmedEmail,
           password,
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setErrorMessage(data.error?.message || "Failed to create account. Please try again.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Successful registration
-      router.push("/");
-      router.refresh();
     } catch {
-      setErrorMessage("Network error occurred. Please try again later.");
+      // ONLY triggered when the network request actually fails (offline, connection refused)
+      setErrorMessage("Network error occurred. Unable to contact authentication server. Please check your connection.");
       setIsLoading(false);
+      return;
     }
+
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      setErrorMessage(`Server error (${res.status}). The service returned an invalid response. Please try again.`);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!res.ok || !data?.success) {
+      const errorMsg =
+        data?.error?.message ||
+        (res.status === 409
+          ? "This email is already registered. Please sign in instead."
+          : `Registration failed (${res.status}). Please try again.`);
+
+      setErrorMessage(errorMsg);
+      if (data?.error?.code === "EMAIL_EXISTS" || res.status === 409) {
+        setIsDuplicateEmail(true);
+      }
+      // For security, clear sensitive password inputs but retain first/last name and email
+      setPassword("");
+      setConfirmPassword("");
+      setIsLoading(false);
+      return;
+    }
+
+    // Successful registration & auto-login
+    router.push("/");
+    router.refresh();
   };
 
   const handleGoogleSignUp = async () => {
@@ -121,11 +160,30 @@ export default function RegisterPage() {
 
         <CardContent className="space-y-4">
           {errorMessage && (
-            <AlertBanner
-              type="error"
-              title="Registration Failed"
-              message={errorMessage}
-            />
+            <div className="space-y-3">
+              <AlertBanner
+                type="error"
+                title="Registration Notice"
+                message={errorMessage}
+                onDismiss={() => {
+                  setErrorMessage(null);
+                  setIsDuplicateEmail(false);
+                }}
+              />
+              {isDuplicateEmail && (
+                <div className="p-3 bg-brand-50 dark:bg-brand-950/40 rounded-xl border border-brand-200 dark:border-brand-800 text-xs flex items-center justify-between">
+                  <span className="text-brand-800 dark:text-brand-300 font-medium">
+                    Already have an account with this email?
+                  </span>
+                  <Link
+                    href={`/login?email=${encodeURIComponent(email.trim())}`}
+                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Sign In Now &rarr;
+                  </Link>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Method A: Continue with Google */}

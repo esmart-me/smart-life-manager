@@ -5,17 +5,53 @@ import { createSessionToken, setSessionCookie } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { success: false, error: { code: "BAD_REQUEST", message: "Invalid request payload" } },
+        { status: 400 }
+      );
+    }
+
     const { email, password, firstName, lastName } = body;
 
-    // Strict validation
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+    // 1. Strict validation: Valid email format
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanEmail = email && typeof email === "string" ? email.trim() : "";
+    if (!cleanEmail || !EMAIL_REGEX.test(cleanEmail)) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_EMAIL", message: "A valid email address is required" } },
         { status: 400 }
       );
     }
 
+    const normalizedEmail = cleanEmail.toLowerCase();
+
+    // 2. Check existing account
+    const existing = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "EMAIL_EXISTS", message: "This email is already registered. Please sign in instead." },
+        },
+        { status: 409 }
+      );
+    }
+
+    // 3. Strict validation: First name is required
+    const cleanFirstName = firstName && typeof firstName === "string" ? firstName.trim() : "";
+    if (!cleanFirstName) {
+      return NextResponse.json(
+        { success: false, error: { code: "MISSING_FIRST_NAME", message: "First name is required" } },
+        { status: 400 }
+      );
+    }
+
+    // 4. Strict validation: Password minimum length
     if (!password || typeof password !== "string" || password.length < 8) {
       return NextResponse.json(
         {
@@ -26,31 +62,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // Check existing
-    const existing = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: { code: "EMAIL_EXISTS", message: "An account with this email already exists" },
-        },
-        { status: 409 }
-      );
-    }
-
     const passwordHash = await hashPassword(password);
-    const cleanFirstName = firstName ? String(firstName).trim() : null;
-    const cleanLastName = lastName ? String(lastName).trim() : null;
-    const displayName = cleanFirstName
-      ? `${cleanFirstName} ${cleanLastName || ""}`.trim()
-      : normalizedEmail.split("@")[0];
+    const cleanLastName = lastName && typeof lastName === "string" ? lastName.trim() : null;
+    const displayName = cleanLastName ? `${cleanFirstName} ${cleanLastName}` : cleanFirstName;
 
-    // Atomically create User, Profile, and Settings
+    // Atomically create User, Profile, Settings, and default UserSubscription
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -61,6 +77,11 @@ export async function POST(request: Request) {
             firstName: cleanFirstName,
             lastName: cleanLastName,
             displayName,
+            country: "US",
+            region: "US",
+            currency: "USD",
+            locale: "en-US",
+            timezone: "UTC",
           },
         },
         settings: {
@@ -73,10 +94,23 @@ export async function POST(request: Request) {
             securityAlerts: true,
           },
         },
+        userSubscription: {
+          create: {
+            plan: "free",
+            planName: "Free Starter",
+            status: "active",
+            billingInterval: "monthly",
+            billingCycle: "monthly",
+            amount: 0.0,
+            currency: "USD",
+            provider: "stripe",
+          },
+        },
       },
       include: {
         profile: true,
         settings: true,
+        userSubscription: true,
       },
     });
 
@@ -98,7 +132,7 @@ export async function POST(request: Request) {
             id: user.id,
             email: user.email,
             role: user.role,
-            displayName: user.profile?.displayName,
+            displayName: user.profile?.displayName || displayName,
           },
         },
       },

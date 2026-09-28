@@ -1,12 +1,13 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle2, Info, AlertTriangle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "lucide-react";
 
 export interface AlertBannerProps {
   type?: "info" | "success" | "warning" | "error";
   title?: string;
   message: string;
   className?: string;
+  onDismiss?: () => void;
 }
 
 export function AlertBanner({
@@ -14,6 +15,7 @@ export function AlertBanner({
   title,
   message,
   className,
+  onDismiss,
 }: AlertBannerProps) {
   const icons = {
     info: Info,
@@ -35,16 +37,26 @@ export function AlertBanner({
     <div
       role="alert"
       className={cn(
-        "flex items-start gap-3 p-3.5 rounded-lg border text-xs",
+        "flex items-start gap-3 p-3.5 rounded-lg border text-xs relative",
         styles[type],
         className
       )}
     >
       <Icon className="w-4 h-4 shrink-0 mt-0.5" />
-      <div>
+      <div className="flex-1 min-w-0 pr-2">
         {title && <p className="font-semibold mb-0.5">{title}</p>}
         <p className="leading-relaxed">{message}</p>
       </div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-current opacity-70 hover:opacity-100 p-0.5 rounded transition-opacity"
+          aria-label="Dismiss alert"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
