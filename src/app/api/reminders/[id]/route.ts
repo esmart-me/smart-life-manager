@@ -99,6 +99,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
       repeat,
       customInterval,
       customUnit,
+      reminderTiming,
+      customMinutesBefore,
+      timezone,
     } = body;
 
     let updatedDueDate = existing.dueDate;
@@ -137,6 +140,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
         category: category || existing.category,
         isRecurring,
         recurrenceRule,
+        reminderTiming: reminderTiming !== undefined ? reminderTiming : (existing as any).reminderTiming || "exact",
+        customMinutesBefore: customMinutesBefore !== undefined ? (customMinutesBefore ? Number(customMinutesBefore) : null) : (existing as any).customMinutesBefore,
+        timezone: timezone !== undefined ? timezone : (existing as any).timezone,
       },
     });
 

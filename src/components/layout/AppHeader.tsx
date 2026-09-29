@@ -6,6 +6,7 @@ import { ShieldCheck, LogOut, Search, Sparkles } from "lucide-react";
 import { SessionUser } from "@/types";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearchModal } from "@/components/search/GlobalSearchModal";
+import { NotificationBellDropdown } from "@/components/notifications/NotificationBellDropdown";
 
 interface AppHeaderProps {
   user: SessionUser;
@@ -84,7 +85,8 @@ export function AppHeader({ user, title }: AppHeaderProps) {
         </div>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <NotificationBellDropdown />
           <ThemeToggle />
 
           <div className="lg:hidden">

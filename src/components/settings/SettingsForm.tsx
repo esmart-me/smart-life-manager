@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import {
@@ -26,7 +26,12 @@ import {
   XCircle,
   RotateCcw,
   Clock,
+  Volume2,
+  MoonStar,
+  Radio,
+  Check,
 } from "lucide-react";
+import { testNotificationSound } from "@/lib/notifications/sound";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
@@ -82,6 +87,22 @@ interface SettingsFormProps {
     reminderDaysBefore: number;
     weeklyDigest: boolean;
     securityAlerts: boolean;
+    notificationsEnabled?: boolean;
+    notifyCritical?: boolean;
+    notifyHigh?: boolean;
+    notifyMedium?: boolean;
+    notifyLow?: boolean;
+    notifyReminders?: boolean;
+    notifyPayments?: boolean;
+    notifyDocuments?: boolean;
+    notifyVehicles?: boolean;
+    notifySubscriptions?: boolean;
+    notifyImportantDates?: boolean;
+    quietHoursEnabled?: boolean;
+    quietHoursStart?: string;
+    quietHoursEnd?: string;
+    allowCriticalInQuietHours?: boolean;
+    soundEnabled?: boolean;
   };
   subscriptionInfo: SettingsSubscriptionDTO;
   initialTransactions?: SettingsTransactionDTO[];
@@ -109,9 +130,121 @@ export function SettingsForm({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [profile, setProfile] = useState(initialProfile);
-  const [settings, setSettings] = useState(initialSettings);
+  const [settings, setSettings] = useState({
+    theme: initialSettings.theme || "system",
+    emailNotifications: initialSettings.emailNotifications ?? true,
+    pushNotifications: initialSettings.pushNotifications ?? true,
+    reminderDaysBefore: initialSettings.reminderDaysBefore ?? 3,
+    weeklyDigest: initialSettings.weeklyDigest ?? true,
+    securityAlerts: initialSettings.securityAlerts ?? true,
+    notificationsEnabled: initialSettings.notificationsEnabled ?? true,
+    notifyCritical: initialSettings.notifyCritical ?? true,
+    notifyHigh: initialSettings.notifyHigh ?? true,
+    notifyMedium: initialSettings.notifyMedium ?? true,
+    notifyLow: initialSettings.notifyLow ?? true,
+    notifyReminders: initialSettings.notifyReminders ?? true,
+    notifyPayments: initialSettings.notifyPayments ?? true,
+    notifyDocuments: initialSettings.notifyDocuments ?? true,
+    notifyVehicles: initialSettings.notifyVehicles ?? true,
+    notifySubscriptions: initialSettings.notifySubscriptions ?? true,
+    notifyImportantDates: initialSettings.notifyImportantDates ?? true,
+    quietHoursEnabled: initialSettings.quietHoursEnabled ?? false,
+    quietHoursStart: initialSettings.quietHoursStart || "22:00",
+    quietHoursEnd: initialSettings.quietHoursEnd || "07:00",
+    allowCriticalInQuietHours: initialSettings.allowCriticalInQuietHours ?? true,
+    soundEnabled: initialSettings.soundEnabled ?? true,
+  });
   const [currentSub, setCurrentSub] = useState(subscriptionInfo);
   const [transactions, setTransactions] = useState(initialTransactions);
+
+  // Web Push notifications state
+  const [pushStatus, setPushStatus] = useState<"granted" | "denied" | "default" | "unsupported">("default");
+  const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+  const [pushSuccess, setPushSuccess] = useState<string | null>(null);
+
+  // Check push permission & URL hash on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (window.location.hash === "#notifications") {
+        setActiveTab("notifications");
+      }
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setPushStatus("unsupported");
+      } else if (typeof Notification !== "undefined") {
+        setPushStatus(Notification.permission);
+      }
+    }
+  }, []);
+
+  function urlBase64ToUint8Array(base64String: string) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  const handleEnablePush = async () => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    setIsSubscribingPush(true);
+    setPushSuccess(null);
+    try {
+      const permission = await Notification.requestPermission();
+      setPushStatus(permission);
+      if (permission !== "granted") {
+        throw new Error("Push notification permission was not granted by your browser.");
+      }
+
+      // 1. Fetch VAPID key
+      const keyRes = await fetch("/api/notifications/push-subscribe");
+      const keyData = await keyRes.json();
+      const vapidPublicKey = keyData?.data?.publicKey;
+
+      if (!vapidPublicKey) {
+        throw new Error("Web Push server key is not configured.");
+      }
+
+      // 2. Register service worker
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+
+      // 3. Subscribe push manager
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
+
+      const subJson = sub.toJSON();
+
+      // 4. Save to server
+      const saveRes = await fetch("/api/notifications/push-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: subJson.keys?.p256dh,
+            auth: subJson.keys?.auth,
+          },
+        }),
+      });
+
+      if (!saveRes.ok) {
+        throw new Error("Failed to save push subscription on server.");
+      }
+
+      setPushSuccess("Push notifications enabled! You'll now receive timely alerts on this device.");
+      setSettings((s) => ({ ...s, pushNotifications: true }));
+    } catch (err: any) {
+      console.error("[Push Setup Error]:", err);
+      setErrorMessage(err?.message || "Failed to enable push notifications.");
+    } finally {
+      setIsSubscribingPush(false);
+    }
+  };
 
   // Subscription action states
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -505,94 +638,399 @@ export function SettingsForm({
           </Card>
         )}
 
-        {/* TAB 3: NOTIFICATIONS */}
+        {/* TAB 3: NOTIFICATIONS (Phase 12 Notification Engine) */}
         {activeTab === "notifications" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Notification & Reminder Rules</CardTitle>
-              <CardDescription className="text-xs">
-                Control alert timing and channels for document expiries, bills, and vehicle renewals.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 cursor-pointer">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-900 dark:text-white block">
-                      Email Expiry Alerts
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Receive advance notices before passports, visas, and bills expire.
-                    </span>
+          <div className="space-y-6">
+            {/* Master Notification Toggle Card */}
+            <Card className="border-brand-200 dark:border-brand-900/50 bg-brand-50/20 dark:bg-brand-950/10">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-brand-500 text-white shrink-0 shadow-xs">
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Master Notification Switch
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Enable or pause all general notifications across the application. When paused, only life-critical alerts will be delivered.
+                      </p>
+                    </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.emailNotifications}
-                    onChange={(e) => setSettings({ ...settings, emailNotifications: e.target.checked })}
-                    className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                  />
-                </label>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={settings.notificationsEnabled}
+                      onChange={(e) => setSettings({ ...settings, notificationsEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
 
-                <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 cursor-pointer">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-900 dark:text-white block">
-                      In-App Dashboard Alerts
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Show urgent items in the Attention Required banner.
-                    </span>
+            {/* Web Push Notifications */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-brand-500" />
+                    <CardTitle className="text-sm font-bold">Browser Push Notifications</CardTitle>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.pushNotifications}
-                    onChange={(e) => setSettings({ ...settings, pushNotifications: e.target.checked })}
-                    className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                  />
-                </label>
+                  {pushStatus === "granted" && (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      Active on Device
+                    </Badge>
+                  )}
+                  {pushStatus === "denied" && (
+                    <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300">
+                      Blocked by Browser
+                    </Badge>
+                  )}
+                  {pushStatus === "default" && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300">
+                      Permission Required
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="text-xs mt-1">
+                  Receive instant native alerts for bill payments, expiring documents, and urgent tasks even when Smart Life Manager is not open.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {pushSuccess && (
+                  <AlertBanner type="success" title="Push Enabled" message={pushSuccess} />
+                )}
 
-                <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 cursor-pointer">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-900 dark:text-white block">
-                      Weekly Life Digest
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Summary of upcoming milestones and expenses for the week ahead.
-                    </span>
+                {pushStatus !== "granted" ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      Click below to grant notification permission. We never send advertising or spam.
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleEnablePush}
+                      disabled={isSubscribingPush || pushStatus === "unsupported"}
+                      className="shrink-0 gap-1.5"
+                    >
+                      <Bell className="w-3.5 h-3.5" />
+                      <span>{isSubscribingPush ? "Enabling..." : "Enable Push Notifications"}</span>
+                    </Button>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.weeklyDigest}
-                    onChange={(e) => setSettings({ ...settings, weeklyDigest: e.target.checked })}
-                    className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                  />
-                </label>
-              </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 text-xs text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Your device is subscribed to receive real-time push alerts.</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Default Advance Warning Window
-                </label>
-                <select
-                  value={settings.reminderDaysBefore}
-                  onChange={(e) => setSettings({ ...settings, reminderDaysBefore: Number(e.target.value) })}
-                  className="w-full sm:w-64 px-3 py-2 text-base sm:text-sm min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-                >
-                  <option value="1">1 day in advance</option>
-                  <option value="3">3 days in advance</option>
-                  <option value="7">7 days in advance</option>
-                  <option value="14">14 days in advance</option>
-                  <option value="30">30 days in advance</option>
-                </select>
-              </div>
+            {/* Priority Toggles */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold">Priority Level Filters</CardTitle>
+                <CardDescription className="text-xs">
+                  Choose which urgency tiers trigger notifications for your account.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        <span className="text-xs font-semibold text-slate-900 dark:text-white">Critical Priority</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        Overdue bills, expired documents, insurance lapse.
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyCritical}
+                      onChange={(e) => setSettings({ ...settings, notifyCritical: e.target.checked })}
+                      className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"
+                    />
+                  </label>
 
-              <div className="pt-2">
-                <Button type="submit" isLoading={isSaving} className="gap-2">
-                  <Save className="w-4 h-4" />
-                  <span>Save Notification Rules</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span className="text-xs font-semibold text-slate-900 dark:text-white">High Priority</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        Due tomorrow, urgent meetings and tasks.
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyHigh}
+                      onChange={(e) => setSettings({ ...settings, notifyHigh: e.target.checked })}
+                      className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        <span className="text-xs font-semibold text-slate-900 dark:text-white">Medium Priority</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        Upcoming 3-7 days advance reminder alerts.
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyMedium}
+                      onChange={(e) => setSettings({ ...settings, notifyMedium: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-slate-400" />
+                        <span className="text-xs font-semibold text-slate-900 dark:text-white">Low Priority</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        Early 30-day renewal warnings, digests.
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyLow}
+                      onChange={(e) => setSettings({ ...settings, notifyLow: e.target.checked })}
+                      className="w-4 h-4 text-slate-600 rounded focus:ring-slate-500"
+                    />
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Module Toggles */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold">Module-Specific Alert Toggles</CardTitle>
+                <CardDescription className="text-xs">
+                  Enable or mute notifications for specific areas of your life management.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <span className="text-xs font-medium text-slate-900 dark:text-white">Reminders & Tasks</span>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyReminders}
+                      onChange={(e) => setSettings({ ...settings, notifyReminders: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <span className="text-xs font-medium text-slate-900 dark:text-white">Bills & Payments</span>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyPayments}
+                      onChange={(e) => setSettings({ ...settings, notifyPayments: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <span className="text-xs font-medium text-slate-900 dark:text-white">Documents & Expiries</span>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyDocuments}
+                      onChange={(e) => setSettings({ ...settings, notifyDocuments: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <span className="text-xs font-medium text-slate-900 dark:text-white">Vehicles & Insurance</span>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyVehicles}
+                      onChange={(e) => setSettings({ ...settings, notifyVehicles: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <span className="text-xs font-medium text-slate-900 dark:text-white">Subscriptions</span>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifySubscriptions}
+                      onChange={(e) => setSettings({ ...settings, notifySubscriptions: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 cursor-pointer">
+                    <span className="text-xs font-medium text-slate-900 dark:text-white">Important Dates</span>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifyImportantDates}
+                      onChange={(e) => setSettings({ ...settings, notifyImportantDates: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    />
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quiet Hours (Do Not Disturb) */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MoonStar className="w-4 h-4 text-indigo-500" />
+                    <CardTitle className="text-sm font-bold">Quiet Hours (Do Not Disturb)</CardTitle>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.quietHoursEnabled}
+                      onChange={(e) => setSettings({ ...settings, quietHoursEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+                <CardDescription className="text-xs mt-1">
+                  Mutes alerts during sleeping or focus hours in your configured timezone ({profile.timezone || "UTC"}).
+                </CardDescription>
+              </CardHeader>
+              {settings.quietHoursEnabled && (
+                <CardContent className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Start Time (Sleep)
+                      </label>
+                      <Input
+                        type="time"
+                        value={settings.quietHoursStart}
+                        onChange={(e) => setSettings({ ...settings, quietHoursStart: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        End Time (Wake)
+                      </label>
+                      <Input
+                        type="time"
+                        value={settings.quietHoursEnd}
+                        onChange={(e) => setSettings({ ...settings, quietHoursEnd: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.allowCriticalInQuietHours}
+                      onChange={(e) => setSettings({ ...settings, allowCriticalInQuietHours: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold text-slate-900 dark:text-white block">
+                        Allow Critical Notifications During Quiet Hours
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Ensures emergency insurance expirations and critical payment notices are never missed.
+                      </span>
+                    </div>
+                  </label>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* In-App Sound Settings */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-emerald-500" />
+                    <CardTitle className="text-sm font-bold">In-App Audio Chimes</CardTitle>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.soundEnabled}
+                      onChange={(e) => setSettings({ ...settings, soundEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+                <CardDescription className="text-xs mt-1">
+                  Plays a gentle synthesizer chime when new notifications arrive while you are using the app.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testNotificationSound(false)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Test Gentle Chime</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testNotificationSound(true)}
+                    className="gap-1.5 text-xs text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Test Critical Alert</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Advance Warning Window & Save */}
+            <Card>
+              <CardContent className="p-4 sm:p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Default Advance Warning Window
+                  </label>
+                  <select
+                    value={settings.reminderDaysBefore}
+                    onChange={(e) => setSettings({ ...settings, reminderDaysBefore: Number(e.target.value) })}
+                    className="w-full sm:w-64 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="1">1 day in advance</option>
+                    <option value="3">3 days in advance</option>
+                    <option value="7">7 days in advance</option>
+                    <option value="14">14 days in advance</option>
+                    <option value="30">30 days in advance</option>
+                  </select>
+                </div>
+
+                <div className="pt-2">
+                  <Button type="submit" isLoading={isSaving} className="gap-2">
+                    <Save className="w-4 h-4" />
+                    <span>Save Notification Preferences</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* TAB 4: PRIVACY & THEME */}

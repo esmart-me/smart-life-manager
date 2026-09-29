@@ -41,6 +41,9 @@ export interface ReminderFormData {
   customInterval?: number;
   customUnit?: string;
   notificationPreference?: string;
+  reminderTiming?: string;
+  customMinutesBefore?: number | null;
+  timezone?: string | null;
 }
 
 interface ReminderFormModalProps {
@@ -69,6 +72,11 @@ export function ReminderFormModal({
   const [category, setCategory] = useState<ReminderCategory>("general");
   const [priority, setPriority] = useState<ReminderPriority>("medium");
   const [notificationPreference, setNotificationPreference] = useState<NotificationPreference>("both");
+
+  // Reminder Timing states (Phase 12 Section 5)
+  const [reminderTiming, setReminderTiming] = useState<string>("exact");
+  const [customTimingValue, setCustomTimingValue] = useState<number>(15);
+  const [customTimingUnit, setCustomTimingUnit] = useState<"minutes" | "hours" | "days">("minutes");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -110,6 +118,25 @@ export function ReminderFormModal({
         setCategory((initialData.category as ReminderCategory) || "general");
         setPriority((initialData.priority as ReminderPriority) || "medium");
         setNotificationPreference((initialData.notificationPreference as NotificationPreference) || "both");
+
+        if (initialData.reminderTiming) {
+          setReminderTiming(initialData.reminderTiming);
+          if (initialData.reminderTiming === "custom" && initialData.customMinutesBefore) {
+            const mins = initialData.customMinutesBefore;
+            if (mins % 1440 === 0) {
+              setCustomTimingValue(mins / 1440);
+              setCustomTimingUnit("days");
+            } else if (mins % 60 === 0) {
+              setCustomTimingValue(mins / 60);
+              setCustomTimingUnit("hours");
+            } else {
+              setCustomTimingValue(mins);
+              setCustomTimingUnit("minutes");
+            }
+          }
+        } else {
+          setReminderTiming("exact");
+        }
       } else {
         // Reset to clean default values for new reminder
         setTitle("");
@@ -122,6 +149,9 @@ export function ReminderFormModal({
         setCategory("general");
         setPriority("medium");
         setNotificationPreference("both");
+        setReminderTiming("exact");
+        setCustomTimingValue(15);
+        setCustomTimingUnit("minutes");
       }
       setErrorMessage(null);
       setIsSubmitting(false);
@@ -151,6 +181,17 @@ export function ReminderFormModal({
     setErrorMessage(null);
 
     try {
+      let customMinutesBefore: number | null = null;
+      if (reminderTiming === "custom") {
+        if (customTimingUnit === "days") {
+          customMinutesBefore = customTimingValue * 1440;
+        } else if (customTimingUnit === "hours") {
+          customMinutesBefore = customTimingValue * 60;
+        } else {
+          customMinutesBefore = customTimingValue;
+        }
+      }
+
       const payload = {
         title: title.trim(),
         description: description.trim() || null,
@@ -162,6 +203,8 @@ export function ReminderFormModal({
         category,
         priority,
         notificationPreference,
+        reminderTiming,
+        customMinutesBefore,
       };
 
       const url = isEditing ? `/api/reminders/${initialData?.id}` : "/api/reminders";
@@ -368,6 +411,58 @@ export function ReminderFormModal({
                     <option value="weeks">Weeks</option>
                     <option value="months">Months</option>
                     <option value="years">Years</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Reminder Schedule / Timing (Phase 12 Section 5) */}
+          <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <Clock className="w-3.5 h-3.5 text-brand-500" />
+              <span>Remind Me (Alert Timing)</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <select
+                  value={reminderTiming}
+                  onChange={(e) => setReminderTiming(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="exact">At exact time</option>
+                  <option value="5m">5 minutes before</option>
+                  <option value="15m">15 minutes before</option>
+                  <option value="30m">30 minutes before</option>
+                  <option value="1h">1 hour before</option>
+                  <option value="1d">1 day before</option>
+                  <option value="3d">3 days before</option>
+                  <option value="7d">7 days before</option>
+                  <option value="30d">30 days before</option>
+                  <option value="custom">Custom before...</option>
+                </select>
+              </div>
+
+              {/* Custom Timing Settings */}
+              {reminderTiming === "custom" && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    value={customTimingValue}
+                    onChange={(e) => setCustomTimingValue(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-20 px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                  <select
+                    value={customTimingUnit}
+                    onChange={(e) => setCustomTimingUnit(e.target.value as "minutes" | "hours" | "days")}
+                    className="flex-1 px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  >
+                    <option value="minutes">Minutes before</option>
+                    <option value="hours">Hours before</option>
+                    <option value="days">Days before</option>
                   </select>
                 </div>
               )}

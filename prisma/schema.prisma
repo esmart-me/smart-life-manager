@@ -45,6 +45,7 @@ model User {
   adminAuditLogs    AdminAuditLog[]
   billingTransactions BillingTransaction[]
   aiConversations   AiConversation[]
+  pushSubscriptions PushSubscription[]
 
   @@index([email])
 }
@@ -112,6 +113,25 @@ model UserSetting {
   reminderDaysBefore Int      @default(3)
   weeklyDigest       Boolean  @default(true)
   securityAlerts     Boolean  @default(true)
+
+  // Smart Notification & Reminder Engine Settings
+  notificationsEnabled Boolean  @default(true)
+  notifyCritical       Boolean  @default(true)
+  notifyHigh           Boolean  @default(true)
+  notifyMedium         Boolean  @default(true)
+  notifyLow            Boolean  @default(true)
+  notifyReminders      Boolean  @default(true)
+  notifyPayments       Boolean  @default(true)
+  notifyDocuments      Boolean  @default(true)
+  notifyVehicles       Boolean  @default(true)
+  notifySubscriptions  Boolean  @default(true)
+  notifyImportantDates Boolean  @default(true)
+  quietHoursEnabled    Boolean  @default(false)
+  quietHoursStart      String   @default("22:00") // 10:00 PM
+  quietHoursEnd        String   @default("07:00") // 7:00 AM
+  allowCriticalInQuietHours Boolean @default(true)
+  soundEnabled         Boolean  @default(true)
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -178,6 +198,9 @@ model Reminder {
   relatedId      String?
   isRecurring    Boolean   @default(false)
   recurrenceRule String?
+  reminderTiming String    @default("exact") // "exact" | "5m" | "15m" | "30m" | "1h" | "1d" | "3d" | "7d" | "30d" | "custom"
+  customMinutesBefore Int?
+  timezone       String?
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -353,18 +376,42 @@ model FamilyMember {
 // 13. Notifications
 // -------------------------------------------------------------
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  type      String   @default("info") // "info" | "warning" | "alert" | "success"
-  isRead    Boolean  @default(false)
-  linkUrl   String?
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  type        String    @default("info") // "info" | "warning" | "alert" | "success"
+  priority    String    @default("medium") // "critical" | "high" | "medium" | "low"
+  category    String    @default("general") // "reminder" | "document" | "vehicle" | "payment" | "subscription" | "date" | "general"
+  linkUrl     String?
+  deliveryKey String?   // Unique delivery tracking & duplicate prevention key
+  status      String    @default("delivered") // "scheduled" | "processing" | "sent" | "delivered" | "failed" | "read"
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
 
   @@index([userId])
   @@index([isRead])
+  @@index([deliveryKey])
+  @@index([priority])
+}
+
+// -------------------------------------------------------------
+// 13b. Web Push Subscriptions
+// -------------------------------------------------------------
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // -------------------------------------------------------------

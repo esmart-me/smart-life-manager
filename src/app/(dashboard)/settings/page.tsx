@@ -33,6 +33,23 @@ export default async function SettingsPage() {
     reminderDaysBefore: userRecord?.settings?.reminderDaysBefore ?? 3,
     weeklyDigest: userRecord?.settings?.weeklyDigest ?? true,
     securityAlerts: userRecord?.settings?.securityAlerts ?? true,
+    // Phase 12 Notification Engine Settings
+    notificationsEnabled: userRecord?.settings?.notificationsEnabled ?? true,
+    notifyCritical: userRecord?.settings?.notifyCritical ?? true,
+    notifyHigh: userRecord?.settings?.notifyHigh ?? true,
+    notifyMedium: userRecord?.settings?.notifyMedium ?? true,
+    notifyLow: userRecord?.settings?.notifyLow ?? true,
+    notifyReminders: userRecord?.settings?.notifyReminders ?? true,
+    notifyPayments: userRecord?.settings?.notifyPayments ?? true,
+    notifyDocuments: userRecord?.settings?.notifyDocuments ?? true,
+    notifyVehicles: userRecord?.settings?.notifyVehicles ?? true,
+    notifySubscriptions: userRecord?.settings?.notifySubscriptions ?? true,
+    notifyImportantDates: userRecord?.settings?.notifyImportantDates ?? true,
+    quietHoursEnabled: userRecord?.settings?.quietHoursEnabled ?? false,
+    quietHoursStart: userRecord?.settings?.quietHoursStart || "22:00",
+    quietHoursEnd: userRecord?.settings?.quietHoursEnd || "07:00",
+    allowCriticalInQuietHours: userRecord?.settings?.allowCriticalInQuietHours ?? true,
+    soundEnabled: userRecord?.settings?.soundEnabled ?? true,
   };
 
   const transactions = await prisma.billingTransaction.findMany({

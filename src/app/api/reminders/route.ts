@@ -137,6 +137,9 @@ export async function POST(request: Request) {
       repeat,
       customInterval,
       customUnit,
+      reminderTiming,
+      customMinutesBefore,
+      timezone,
       notificationPreference = "both",
     } = body;
 
@@ -195,6 +198,9 @@ export async function POST(request: Request) {
         status: "pending",
         isRecurring,
         recurrenceRule,
+        reminderTiming: reminderTiming || "exact",
+        customMinutesBefore: customMinutesBefore ? Number(customMinutesBefore) : null,
+        timezone: timezone || null,
       },
     });
 
