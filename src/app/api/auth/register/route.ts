@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, password, firstName, lastName } = body;
+    const { email, password, firstName, lastName, displayName: rawDisplayName, currency } = body;
 
     // 1. Strict validation: Valid email format
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,8 +42,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Strict validation: First name is required
-    const cleanFirstName = firstName && typeof firstName === "string" ? firstName.trim() : "";
+    // 3. Name validation: First name is required (or extractable from displayName)
+    let cleanFirstName = firstName && typeof firstName === "string" ? firstName.trim() : "";
+    let cleanLastName = lastName && typeof lastName === "string" ? lastName.trim() : null;
+    if (!cleanFirstName && rawDisplayName && typeof rawDisplayName === "string" && rawDisplayName.trim()) {
+      const parts = rawDisplayName.trim().split(/\s+/);
+      cleanFirstName = parts[0] || "";
+      if (!cleanLastName && parts.length > 1) {
+        cleanLastName = parts.slice(1).join(" ");
+      }
+    }
+
     if (!cleanFirstName) {
       return NextResponse.json(
         { success: false, error: { code: "MISSING_FIRST_NAME", message: "First name is required" } },
@@ -63,8 +72,8 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await hashPassword(password);
-    const cleanLastName = lastName && typeof lastName === "string" ? lastName.trim() : null;
-    const displayName = cleanLastName ? `${cleanFirstName} ${cleanLastName}` : cleanFirstName;
+    const finalDisplayName = cleanLastName ? `${cleanFirstName} ${cleanLastName}` : cleanFirstName;
+    const userCurrency = currency && typeof currency === "string" ? currency.trim().toUpperCase() : "USD";
 
     // Atomically create User, Profile, Settings, and default UserSubscription
     const user = await prisma.user.create({
@@ -76,10 +85,10 @@ export async function POST(request: Request) {
           create: {
             firstName: cleanFirstName,
             lastName: cleanLastName,
-            displayName,
+            displayName: finalDisplayName,
             country: "US",
             region: "US",
-            currency: "USD",
+            currency: userCurrency,
             locale: "en-US",
             timezone: "UTC",
           },
@@ -132,7 +141,7 @@ export async function POST(request: Request) {
             id: user.id,
             email: user.email,
             role: user.role,
-            displayName: user.profile?.displayName || displayName,
+            displayName: user.profile?.displayName || finalDisplayName,
           },
         },
       },
