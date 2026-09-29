@@ -35,10 +35,10 @@ export function isAiConfigured(): boolean {
 
 /**
  * Returns the configured Gemini model name.
- * Defaults to "gemini-2.5-flash".
+ * Defaults to "gemini-3.8-flash".
  */
 export function getAiModel(): string {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  return process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
 }
 
 /**
@@ -113,10 +113,12 @@ export async function generateAiResponse({
 
   // 4. Invoke Google GenAI client
   const client = new GoogleGenAI({ apiKey });
+  let activeModel = model;
+  let response;
 
   try {
-    const response = await client.models.generateContent({
-      model,
+    response = await client.models.generateContent({
+      model: activeModel,
       contents,
       config: {
         systemInstruction,
@@ -124,19 +126,83 @@ export async function generateAiResponse({
         maxOutputTokens: 2048,
       },
     });
+  } catch (primaryError: any) {
+    const rawMsg = primaryError?.message || String(primaryError);
+    console.warn(`[GeminiService] Primary model (${activeModel}) error:`, rawMsg);
 
-    const reply =
-      response.text?.trim() ||
-      "I reviewed your records, but could not produce a detailed answer. Please try rephrasing your question.";
+    // Resilient fallback: If primary model hits 429 quota, 503 high demand, or 404, attempt fallback models
+    const isRecoverable =
+      rawMsg.includes("429") ||
+      rawMsg.includes("RESOURCE_EXHAUSTED") ||
+      rawMsg.includes("quota") ||
+      rawMsg.includes("503") ||
+      rawMsg.includes("UNAVAILABLE") ||
+      rawMsg.includes("high demand") ||
+      rawMsg.includes("404") ||
+      rawMsg.includes("NOT_FOUND");
 
-    return {
-      reply,
-      provider: "Google Gemini",
-      model,
-    };
-  } catch (error: any) {
-    const msg = error?.message || String(error);
-    console.error("[GeminiService] Error during generateContent:", msg);
-    throw new Error(`AI generation error: ${msg}`);
+    if (isRecoverable) {
+      const fallbackCandidates = ["gemini-3.5-flash-lite", "gemini-3.5-flash"].filter(
+        (m) => m !== activeModel
+      );
+
+      let fallbackSucceeded = false;
+      for (const fallbackModel of fallbackCandidates) {
+        try {
+          console.log(`[GeminiService] Attempting high-availability fallback to ${fallbackModel}...`);
+          response = await client.models.generateContent({
+            model: fallbackModel,
+            contents,
+            config: {
+              systemInstruction,
+              temperature: 0.2,
+              maxOutputTokens: 2048,
+            },
+          });
+          activeModel = fallbackModel;
+          fallbackSucceeded = true;
+          console.log(`[GeminiService] Successfully generated response using fallback model ${activeModel}`);
+          break;
+        } catch (fbErr: any) {
+          console.warn(`[GeminiService] Fallback ${fallbackModel} unavailable:`, fbErr?.message || fbErr);
+        }
+      }
+
+      if (!fallbackSucceeded) {
+        // Sanitize clean, useful application error without leaking credentials or stack traces
+        if (rawMsg.includes("429") || rawMsg.includes("RESOURCE_EXHAUSTED") || rawMsg.includes("quota")) {
+          throw new Error(
+            `The AI service has reached its daily quota limit for model ${activeModel}. Please try again later or check your Google AI Studio plan.`
+          );
+        }
+        if (rawMsg.includes("503") || rawMsg.includes("UNAVAILABLE") || rawMsg.includes("high demand")) {
+          throw new Error(
+            `The AI service (${activeModel}) is temporarily experiencing high demand. Please try again in a few moments.`
+          );
+        }
+        if (rawMsg.includes("404") || rawMsg.includes("NOT_FOUND")) {
+          throw new Error(
+            `The requested AI model (${activeModel}) is not available. Please verify model configuration.`
+          );
+        }
+        throw new Error("An error occurred while communicating with the AI service. Please try again.");
+      }
+    } else {
+      // Non-recoverable error (e.g. invalid key format)
+      if (rawMsg.includes("API key not valid") || rawMsg.includes("API_KEY_INVALID")) {
+        throw new Error("The configured GEMINI_API_KEY is invalid. Please check your API key in server settings.");
+      }
+      throw new Error("An error occurred while communicating with the AI service. Please try again.");
+    }
   }
+
+  const reply =
+    response?.text?.trim() ||
+    "I reviewed your records, but could not produce a detailed answer. Please try rephrasing your question.";
+
+  return {
+    reply,
+    provider: "Google Gemini",
+    model: activeModel,
+  };
 }
