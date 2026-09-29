@@ -14,7 +14,9 @@ import { SignJWT } from "jose";
 import fs from "fs";
 import path from "path";
 import ts from "typescript";
+import { createRequire } from "module";
 
+const require = createRequire(import.meta.url);
 const prisma = new PrismaClient();
 const BASE_URL = process.env.TEST_APP_URL || "http://localhost:3000";
 const JWT_SECRET = new TextEncoder().encode(
@@ -49,22 +51,38 @@ function assert(condition, message) {
 }
 
 async function loadContextBuilder() {
+  const customRequire = (mod) => {
+    if (mod === "@prisma/client") return { PrismaClient };
+    if (mod === "@/lib/db/prisma") return { prisma };
+    if (mod.startsWith("./") || mod.startsWith("@/lib/ai/")) {
+      const fileName = mod.replace("@/lib/ai/", "").replace("./", "").replace(/\.ts$/, "") + ".ts";
+      const filePath = path.join(process.cwd(), "src/lib/ai", fileName);
+      if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, "utf8").replace('import { prisma } from "@/lib/db/prisma";', "");
+        const compiled = ts.transpileModule(fileContent, {
+          compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+        }).outputText;
+        const subM = { exports: {} };
+        const subFn = new Function("module", "exports", "require", "prisma", compiled);
+        subFn(subM, subM.exports, customRequire, prisma);
+        return subM.exports;
+      }
+    }
+    return require(mod);
+  };
+
   const tsCode = fs.readFileSync(path.join(process.cwd(), "src/lib/ai/context-builder.ts"), "utf8");
-  // Replace the alias import with direct prisma instance
   const modifiedCode = tsCode.replace(
     'import { prisma } from "@/lib/db/prisma";',
-    'const { PrismaClient } = require("@prisma/client"); const prisma = new PrismaClient();'
+    ""
   );
   const jsCode = ts.transpileModule(modifiedCode, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
 
   const m = { exports: {} };
-  const fn = new Function("module", "exports", "require", jsCode);
-  fn(m, m.exports, (mod) => {
-    if (mod === "@prisma/client") return { PrismaClient };
-    return require(mod);
-  });
+  const fn = new Function("module", "exports", "require", "prisma", jsCode);
+  fn(m, m.exports, customRequire, prisma);
   return m.exports;
 }
 

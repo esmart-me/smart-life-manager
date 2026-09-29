@@ -88,8 +88,8 @@ export async function generateAiResponse({
     );
   }
 
-  // 1. Build strictly user-isolated data context
-  const customerContext = await buildCustomerContext(userId, userMessage);
+  // 1. Build strictly user-isolated data context using intelligent tool selection and conversational history
+  const customerContext = await buildCustomerContext(userId, userMessage, history);
 
   // 2. Build system prompt containing guidelines and authenticated context
   const systemInstruction = buildSystemPromptWithContext(customerContext);
