@@ -21,6 +21,7 @@
     "build:exe": "next build && electron-builder --win --x64"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "@prisma/client": "^6.4.1",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",

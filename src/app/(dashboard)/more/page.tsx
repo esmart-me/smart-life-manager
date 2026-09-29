@@ -23,6 +23,14 @@ export default async function MorePage() {
       title: "Analytics & Exploration",
       items: [
         {
+          title: "AI Personal Assistant",
+          description: "Intelligent, grounded Q&A across your documents, bills, vehicles, and reminders",
+          href: "/assistant",
+          icon: Sparkles,
+          badge: "New",
+          variant: "success" as const,
+        },
+        {
           title: "Reports & Analytics",
           description: "Audit-ready PDF, CSV, and image reports across spending, bills, expiries, and renewals",
           href: "/reports",

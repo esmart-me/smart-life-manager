@@ -20,6 +20,7 @@ export const MOBILE_NAV_ITEMS: NavItem[] = [
 // Desktop Sidebar Primary Navigation
 export const DESKTOP_NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/", iconName: "LayoutDashboard", exact: true },
+  { label: "AI Assistant", href: "/assistant", iconName: "Sparkles" },
   { label: "Documents & Expiries", href: "/documents", iconName: "FileText" },
   { label: "Reminders & Tasks", href: "/reminders", iconName: "Bell" },
   { label: "Finance & Bills", href: "/finance", iconName: "Wallet" },

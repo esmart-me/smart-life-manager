@@ -10,9 +10,13 @@ import {
   ArrowUpRight,
   Activity,
   ShieldCheck,
+  Bot,
+  AlertCircle,
+  Cpu,
 } from "lucide-react";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
+import { getAiConfigStatus } from "@/lib/ai/gemini-service";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +34,8 @@ export default async function AdminDashboardPage() {
     billingStats,
     recentAudits,
     recentCustomers,
+    totalAiConversations,
+    totalAiMessages,
   ] = await Promise.all([
     // Customers (non-admin accounts)
     prisma.user.count({
@@ -76,7 +82,12 @@ export default async function AdminDashboardPage() {
         userSubscription: true,
       },
     }),
+    // AI metrics
+    prisma.aiConversation.count(),
+    prisma.aiMessage.count(),
   ]);
+
+  const aiStatus = getAiConfigStatus();
 
   // Compute subscription numbers from real database records
   let freeUsers = 0;
@@ -277,6 +288,86 @@ export default async function AdminDashboardPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* AI Assistant Architecture & Status (Phase 11 Foundation) */}
+      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white shadow-md shadow-brand-500/20">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white">AI Assistant Architecture</h3>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  Read-Only Mode
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Grounding &amp; tenant-isolation security engine for Smart Life Manager
+              </p>
+            </div>
+          </div>
+
+          <div>
+            {aiStatus.configured ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800 text-xs font-semibold">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                Operational ({aiStatus.model})
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800 text-xs font-semibold">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                Awaiting Configuration
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">AI Provider</span>
+            <p className="font-bold text-slate-200 text-sm">{aiStatus.provider}</p>
+            <p className="text-[11px] text-slate-400 font-mono">Model: {aiStatus.model}</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Tenant Isolation</span>
+            <p className="font-bold text-emerald-400 text-sm">Enforced</p>
+            <p className="text-[11px] text-slate-400">Strict per-user data scoping</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Conversations</span>
+            <p className="font-bold text-white text-sm">{totalAiConversations}</p>
+            <p className="text-[11px] text-slate-400">Total active chat threads</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Messages Grounded</span>
+            <p className="font-bold text-white text-sm">{totalAiMessages}</p>
+            <p className="text-[11px] text-slate-400">Total processed AI turns</p>
+          </div>
+        </div>
+
+        {!aiStatus.configured && (
+          <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-800/60 text-amber-200 text-xs space-y-2">
+            <div className="font-semibold text-amber-100 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+              <span>How to Configure Google Gemini API</span>
+            </div>
+            <p className="text-slate-300">
+              The AI Assistant securely uses server-side environment variables. To activate:
+            </p>
+            <div className="p-2.5 rounded bg-slate-950 font-mono text-[11px] text-amber-300 border border-slate-800">
+              GEMINI_API_KEY=&quot;your-google-gemini-api-key&quot;
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Add this to your server environment (.env) and restart the application. The key is never exposed to browser bundles or network clients.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Two Column Layout: Recent Customers & Recent Audit Trail */}
