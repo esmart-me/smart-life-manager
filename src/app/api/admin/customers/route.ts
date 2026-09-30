@@ -1,22 +1,14 @@
-// src/app/api/admin/customers/route.ts
 import { NextResponse } from "next/server";
-import { getCurrentUser, isAdmin } from "@/lib/auth/session";
+import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
+  const admin = await getAdminUser();
+  if (!admin) {
     return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
-      { status: 401 }
-    );
-  }
-
-  if (!isAdmin(user.role)) {
-    return NextResponse.json(
-      { success: false, error: { code: "FORBIDDEN", message: "Administrator access required" } },
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
       { status: 403 }
     );
   }
@@ -31,6 +23,8 @@ export async function GET() {
         id: true,
         email: true,
         role: true,
+        status: true,
+        lastLoginAt: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
@@ -84,10 +78,13 @@ export async function GET() {
       currency: c.profile?.currency || "USD",
       plan: c.userSubscription?.plan || "free",
       planName: c.userSubscription?.planName || "Free Starter",
+      status: c.status || "active",
       subscriptionStatus: c.userSubscription?.status || "active",
       billingInterval: c.userSubscription?.billingInterval || "monthly",
       subscriptionAmount: c.userSubscription?.amount || 0.0,
       createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+      lastLoginAt: c.lastLoginAt ? c.lastLoginAt.toISOString() : null,
       counts: {
         documents: c._count.documents,
         reminders: c._count.reminders,

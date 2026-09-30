@@ -18,7 +18,9 @@ model User {
   email         String    @unique
   passwordHash  String
   role          String    @default("user") // "user" | "admin"
+  status        String    @default("active") // "active" | "inactive" | "suspended" | "archived" | "deleted"
   emailVerified Boolean   @default(false)
+  lastLoginAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -131,6 +133,10 @@ model UserSetting {
   quietHoursEnd        String   @default("07:00") // 7:00 AM
   allowCriticalInQuietHours Boolean @default(true)
   soundEnabled         Boolean  @default(true)
+
+  // Customer Onboarding state
+  onboardingCompleted  Boolean  @default(false)
+  onboardingStep       Int      @default(1)
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -550,6 +556,10 @@ model BillingTransaction {
   paymentDate     DateTime          @default(now())
   failureReason   String?
   notes           String?
+  receiptUrl      String?           // For customer UTR screenshot or receipt
+  utrNumber       String?           // UTR / Transaction reference number
+  verifiedBy      String?           // Admin ID who verified manual payment
+  verifiedAt      DateTime?         // Timestamp of manual verification
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -561,7 +571,24 @@ model BillingTransaction {
 }
 
 // -------------------------------------------------------------
-// 18. Admin Audit Log (Security & Activity Trail)
+// 18. Centralized System Payment Configuration (Admin Payment Settings)
+// -------------------------------------------------------------
+model SystemPaymentConfig {
+  id              String   @id @default("default_payment_config")
+  cardEnabled     Boolean  @default(true)
+  stripeEnabled   Boolean  @default(true)
+  paypalEnabled   Boolean  @default(false)
+  upiEnabled      Boolean  @default(false)
+  upiId           String?  // e.g. "smartlifemanager@okaxis"
+  upiDisplayName  String?  // e.g. "Smart Life Manager"
+  upiQrCodeUrl    String?  // Secure URL or base64 data for UPI QR
+  upiInstructions String?  // Instructions for customer UPI transfer
+  defaultMethod   String   @default("none") // "none" | "card" | "stripe" | "upi"
+  updatedAt       DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// 19. Admin Audit Log (Security & Activity Trail)
 // -------------------------------------------------------------
 model AdminAuditLog {
   id         String   @id @default(cuid())

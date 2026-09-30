@@ -12,6 +12,8 @@ import {
   BarChart3,
   Search,
   Sparkles,
+  Calculator,
+  Globe,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
@@ -110,6 +112,27 @@ export default async function MorePage() {
           href: "/more/family",
           icon: Users,
           badge: "Active",
+          variant: "success" as const,
+        },
+      ],
+    },
+    {
+      title: "Utilities & Smart Tools",
+      items: [
+        {
+          title: "Smart Calculator",
+          description: "High-precision arithmetic, percentages, backspace, and calculation history",
+          href: "/utilities/calculator",
+          icon: Calculator,
+          badge: "New",
+          variant: "info" as const,
+        },
+        {
+          title: "Currency Converter",
+          description: "Real-time exchange rates across GCC (AED, SAR, QAR, KWD), USD, EUR, INR",
+          href: "/utilities/currency",
+          icon: Globe,
+          badge: "Live",
           variant: "success" as const,
         },
       ],

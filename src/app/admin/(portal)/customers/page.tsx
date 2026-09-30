@@ -53,6 +53,8 @@ export default async function AdminCustomersPage() {
       ? u.userSubscription.currentPeriodEnd.toISOString()
       : null,
     createdAt: u.createdAt.toISOString(),
+    status: u.status || "active",
+    lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
     lastActivity: u.updatedAt.toISOString(),
     documentsCount: u._count.documents,
     remindersCount: u._count.reminders,

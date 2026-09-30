@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/db/prisma";
-import { isAdmin } from "@/lib/auth/session";
+import { isAuthorizedOwnerAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +25,8 @@ export async function POST(request: Request) {
 
     let resetToken: string | null = null;
 
-    // Verify user exists AND possesses administrator privileges
-    if (user && isAdmin(user.role)) {
+    // Verify user exists AND is the authorized Master Administrator
+    if (user && isAuthorizedOwnerAdmin(user.email, user.role)) {
       // Invalidate existing tokens
       await prisma.passwordResetToken.deleteMany({
         where: { userId: user.id },

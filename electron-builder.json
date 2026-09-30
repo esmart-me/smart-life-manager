@@ -11,6 +11,7 @@
     ".next/**/*",
     "public/**/*",
     "prisma/**/*",
+    ".env",
     "package.json",
     "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
     "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
@@ -21,6 +22,10 @@
     {
       "from": "prisma/dev.db",
       "to": "prisma/dev.db"
+    },
+    {
+      "from": "node_modules/.prisma",
+      "to": "app/node_modules/.prisma"
     }
   ],
   "asar": false,
@@ -31,7 +36,8 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "electron/assets/icon.png"
+    "icon": "electron/assets/icon.png",
+    "signAndEditExecutable": false
   },
   "nsis": {
     "oneClick": false,
@@ -39,6 +45,7 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "Smart Life Manager",
-    "uninstallDisplayName": "Smart Life Manager"
+    "uninstallDisplayName": "Smart Life Manager",
+    "artifactName": "${productName}-Setup-${version}.${ext}"
   }
 }

@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser, isAdmin } from "@/lib/auth/session";
+import { getAdminUser } from "@/lib/auth/session";
 import { updatePlanConfig, getAllPlans } from "@/lib/plans/plan-service";
 import { PlanTier } from "@/lib/plans/constants";
 
 export async function PUT(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
+  const admin = await getAdminUser();
+  if (!admin) {
     return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-      { status: 401 }
-    );
-  }
-
-  if (!isAdmin(user.role)) {
-    return NextResponse.json(
-      { success: false, error: { code: "FORBIDDEN", message: "Admin access required" } },
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
       { status: 403 }
     );
   }

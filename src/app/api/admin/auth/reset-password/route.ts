@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
-import { isAdmin } from "@/lib/auth/session";
+import { isAdmin, isAuthorizedOwnerAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -52,10 +52,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Strict role check: user MUST be an administrator
-    if (!isAdmin(resetRecord.user.role)) {
+    // Strict check: user MUST be the authorized Master Administrator
+    if (!isAuthorizedOwnerAdmin(resetRecord.user.email, resetRecord.user.role)) {
       return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Token does not belong to an administrator." } },
+        { success: false, error: { code: "FORBIDDEN", message: "Token does not belong to the authorized Master Administrator." } },
         { status: 403 }
       );
     }

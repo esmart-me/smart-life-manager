@@ -101,6 +101,8 @@ export async function POST(request: Request) {
             reminderDaysBefore: 3,
             weeklyDigest: true,
             securityAlerts: true,
+            onboardingCompleted: false,
+            onboardingStep: 1,
           },
         },
         userSubscription: {

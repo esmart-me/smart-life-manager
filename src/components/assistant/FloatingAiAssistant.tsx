@@ -155,7 +155,9 @@ export function FloatingAiAssistant() {
 
       if (!res.ok || !json.success) {
         // Safe, sanitized error message without technical leak
-        setErrorMessage("Sorry, I couldn't process that right now. Please try again.");
+        setErrorMessage(
+          json?.error?.message || "Sorry, I couldn't process that right now. Please try again."
+        );
         return;
       }
 
@@ -172,7 +174,7 @@ export function FloatingAiAssistant() {
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch {
-      setErrorMessage("Sorry, I couldn't process that right now. Please try again.");
+      setErrorMessage("Network connection error. Please check your internet and try again.");
     } finally {
       setIsGenerating(false);
     }

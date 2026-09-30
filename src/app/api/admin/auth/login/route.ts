@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
-import { createSessionToken, setSessionCookie, isAdmin } from "@/lib/auth/session";
+import { createSessionToken, setAdminSessionCookie, isAuthorizedOwnerAdmin } from "@/lib/auth/session";
 import { ensureSuperAdmin } from "@/lib/auth/admin-init";
 
 export async function POST(req: NextRequest) {
@@ -31,14 +31,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Role check: Normal customers cannot use admin login
-    if (!isAdmin(user.role)) {
+    // Strict Master/Owner Administrator authorization check
+    if (!isAuthorizedOwnerAdmin(user.email, user.role)) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: "FORBIDDEN",
-            message: "Access denied. Administrator privileges are required to access this portal.",
+            message: "Access denied. Only the authorized Master Administrator may access this portal.",
           },
         },
         { status: 403 }
@@ -54,14 +54,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create session token and set cookie
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    }).catch(() => {});
+
+    // Create session token and set dedicated admin session cookie
     const token = await createSessionToken({
       id: user.id,
       email: user.email,
       role: user.role as any,
     });
 
-    await setSessionCookie(token);
+    await setAdminSessionCookie(token);
 
     // Audit log
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";

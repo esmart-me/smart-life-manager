@@ -203,6 +203,29 @@ export interface SubscriptionItem {
   notes: string | null;
 }
 
+export interface AppSubscriptionDetails {
+  plan: string;
+  planName: string;
+  status: string;
+  billingInterval: string;
+  amount: number;
+  currency: string;
+  currentPeriodEnd: string | null;
+  daysRemaining: number | null;
+  cancelAtPeriodEnd: boolean;
+}
+
+export interface BillingReceiptItem {
+  id: string;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  plan: string;
+  status: string;
+  paymentDate: string;
+  paymentProvider: string;
+}
+
 export interface SubscriptionsResult {
   total: number;
   activeCount: number;
@@ -210,6 +233,8 @@ export interface SubscriptionsResult {
   currency: string;
   upcomingRenewals: SubscriptionItem[];
   subscriptions: SubscriptionItem[];
+  appSubscription: AppSubscriptionDetails | null;
+  billingHistory: BillingReceiptItem[];
   summary: string;
 }
 
@@ -873,26 +898,89 @@ export function createCustomerDataTools(authenticatedUserId: string) {
 
     /**
      * Tool: getMySubscriptions()
-     * Fetches active recurring subscriptions with monthly cost totals and renewal schedules.
+     * Fetches active recurring subscriptions with monthly cost totals, app membership, and renewal schedules.
      */
     async getMySubscriptions(): Promise<SubscriptionsResult> {
-      const items = await prisma.subscription.findMany({
-        where: { userId },
-        orderBy: { nextBillingDate: "asc" },
-        select: {
-          id: true,
-          name: true,
-          cost: true,
-          currency: true,
-          billingCycle: true,
-          nextBillingDate: true,
-          renewalStatus: true,
-          category: true,
-          notes: true,
-        },
-      });
+      const [items, userSub, billingTxs] = await Promise.all([
+        prisma.subscription.findMany({
+          where: { userId },
+          orderBy: { nextBillingDate: "asc" },
+          select: {
+            id: true,
+            name: true,
+            cost: true,
+            currency: true,
+            billingCycle: true,
+            nextBillingDate: true,
+            renewalStatus: true,
+            category: true,
+            notes: true,
+          },
+        }),
+        prisma.userSubscription.findUnique({
+          where: { userId },
+          select: {
+            plan: true,
+            planName: true,
+            status: true,
+            billingInterval: true,
+            amount: true,
+            currency: true,
+            currentPeriodEnd: true,
+            cancelAtPeriodEnd: true,
+          },
+        }),
+        prisma.billingTransaction.findMany({
+          where: { userId },
+          take: 5,
+          orderBy: { paymentDate: "desc" },
+          select: {
+            id: true,
+            transactionId: true,
+            amount: true,
+            currency: true,
+            plan: true,
+            status: true,
+            paymentDate: true,
+            paymentProvider: true,
+          },
+        }),
+      ]);
 
-      const currency = items[0]?.currency || "USD";
+      const currency = items[0]?.currency || userSub?.currency || "USD";
+
+      let appSubscription: AppSubscriptionDetails | null = null;
+      if (userSub) {
+        let daysRemaining: number | null = null;
+        if (userSub.currentPeriodEnd) {
+          const diffMs = userSub.currentPeriodEnd.getTime() - now.getTime();
+          daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        }
+        appSubscription = {
+          plan: userSub.plan,
+          planName: userSub.planName || userSub.plan,
+          status: userSub.status,
+          billingInterval: userSub.billingInterval,
+          amount: userSub.amount,
+          currency: userSub.currency,
+          currentPeriodEnd: userSub.currentPeriodEnd
+            ? userSub.currentPeriodEnd.toISOString().split("T")[0]
+            : null,
+          daysRemaining,
+          cancelAtPeriodEnd: Boolean(userSub.cancelAtPeriodEnd),
+        };
+      }
+
+      const billingHistory: BillingReceiptItem[] = billingTxs.map((b) => ({
+        id: b.id,
+        transactionId: b.transactionId,
+        amount: b.amount,
+        currency: b.currency,
+        plan: b.plan,
+        status: b.status,
+        paymentDate: b.paymentDate.toISOString(),
+        paymentProvider: b.paymentProvider,
+      }));
 
       if (items.length === 0) {
         return {
@@ -902,7 +990,11 @@ export function createCustomerDataTools(authenticatedUserId: string) {
           currency,
           upcomingRenewals: [],
           subscriptions: [],
-          summary: "No subscriptions tracked in your account.",
+          appSubscription,
+          billingHistory,
+          summary: appSubscription
+            ? `Your Smart Life Manager plan is ${appSubscription.planName} (${appSubscription.status.toUpperCase()}). No external subscriptions tracked.`
+            : "No subscriptions tracked in your account.",
         };
       }
 
@@ -941,7 +1033,9 @@ export function createCustomerDataTools(authenticatedUserId: string) {
           currency: s.currency,
           billingCycle: s.billingCycle,
           nextBillingDate: s.nextBillingDate ? s.nextBillingDate.toISOString().split("T")[0] : null,
-          nextBillingDateFormatted: s.nextBillingDate ? s.nextBillingDate.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : null,
+          nextBillingDateFormatted: s.nextBillingDate
+            ? s.nextBillingDate.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+            : null,
           daysUntilRenewal,
           renewalStatus: s.renewalStatus,
           category: s.category,
@@ -962,7 +1056,9 @@ export function createCustomerDataTools(authenticatedUserId: string) {
         currency,
         upcomingRenewals,
         subscriptions,
-        summary: `You have ${subscriptions.length} subscription(s) (${activeCount} active). Monthly commitment: ~${currency} ${monthlyEquivalentTotal.toFixed(2)}. ${upcomingRenewals.length} renewing in the next 30 days.`,
+        appSubscription,
+        billingHistory,
+        summary: `You have ${subscriptions.length} tracked subscription(s) (${activeCount} active). Monthly commitment: ~${currency} ${monthlyEquivalentTotal.toFixed(2)}. ${upcomingRenewals.length} renewing in the next 30 days.`,
       };
     },
 

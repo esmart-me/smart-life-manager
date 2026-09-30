@@ -18,6 +18,7 @@ import {
   KeyRound,
   Lock,
   CheckCircle2,
+  QrCode,
 } from "lucide-react";
 import { useState } from "react";
 import { SessionUser } from "@/types";
@@ -29,10 +30,11 @@ interface AdminSidebarProps {
 }
 
 export const ADMIN_NAV_ITEMS = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
+  { label: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
   { label: "Payments", href: "/admin/payments", icon: Receipt },
+  { label: "Payment Settings", href: "/admin/payments/settings", icon: QrCode },
   { label: "Plans & Regional Pricing", href: "/admin/plans", icon: Sparkles },
   { label: "Security & Audit Log", href: "/admin/audit", icon: ShieldCheck },
 ];
@@ -191,6 +193,7 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                     isActive

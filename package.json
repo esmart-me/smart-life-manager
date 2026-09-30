@@ -1,10 +1,12 @@
 {
   "name": "smart-life-manager",
   "version": "0.1.0",
+  "description": "Smart Life Manager - Personal and Family Operating System",
+  "author": "Smart Life Manager Team",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -14,11 +16,14 @@
     "db:studio": "prisma studio",
     "db:backup": "node scripts/backup-db.js",
     "admin:create": "node scripts/create-admin.mjs",
-    "desktop": "electron electron/main.cjs",
-    "desktop:dev": "concurrently -k \"npm run dev\" \"wait-on tcp:3000 && electron electron/main.cjs\"",
-    "desktop:start": "electron electron/main.cjs",
-    "desktop:build": "next build && electron-builder --win --x64",
-    "build:exe": "next build && electron-builder --win --x64"
+    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on tcp:3000 && electron .\"",
+    "electron:start": "electron .",
+    "electron:build": "next build && electron-builder --win --x64",
+    "desktop": "electron .",
+    "desktop:dev": "npm run electron:dev",
+    "desktop:start": "electron .",
+    "desktop:build": "npm run electron:build",
+    "build:exe": "npm run electron:build"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",

@@ -3,6 +3,7 @@ import { DesktopSidebar } from "@/components/layout/DesktopSidebar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { FloatingAiAssistant } from "@/components/assistant/FloatingAiAssistant";
+import { CustomerOnboardingModal } from "@/components/onboarding/CustomerOnboardingModal";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,9 @@ export default async function DashboardLayout({
 
         {/* Floating AI Assistant Entry Point */}
         <FloatingAiAssistant />
+
+        {/* First-Time Customer Onboarding Flow */}
+        <CustomerOnboardingModal />
 
         {/* Mobile Bottom Navigation (visible on mobile, hidden on desktop) */}
         <MobileBottomNav />

@@ -5,6 +5,7 @@ export const APP_CONFIG = {
   tagline: "Never miss an important expiry date, payment, or life event.",
   version: "0.1.0",
   cookieName: "slm_session",
+  adminCookieName: "slm_admin_session",
   sessionMaxAge: 60 * 60 * 24 * 30, // 30 days in seconds (persistent session)
 };
 
@@ -30,6 +31,7 @@ export const DESKTOP_NAV_ITEMS: NavItem[] = [
   { label: "Important Dates", href: "/more/dates", iconName: "Calendar" },
   { label: "Global Search", href: "/search", iconName: "Search" },
   { label: "Family Circle", href: "/more/family", iconName: "Users" },
+  { label: "Utilities & Tools", href: "/utilities", iconName: "Calculator" },
 ];
 
 export const DESKTOP_SECONDARY_NAV: NavItem[] = [

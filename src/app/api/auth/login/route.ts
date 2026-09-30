@@ -40,6 +40,32 @@ export async function POST(request: Request) {
       );
     }
 
+    if (user.status === "deleted") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "We couldn’t sign you in. Please check your email and password.",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
+    if (user.status === "suspended") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "ACCOUNT_SUSPENDED",
+            message: "Your account has been suspended by an administrator. Please contact support.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     const isMatch = await verifyPassword(password, user.passwordHash);
     if (!isMatch) {
       return NextResponse.json(
@@ -53,6 +79,12 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+
+    // Update last active login timestamp
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    }).catch(() => {});
 
     const token = await createSessionToken({
       id: user.id,
