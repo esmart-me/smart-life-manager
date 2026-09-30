@@ -152,22 +152,6 @@ export function DesktopSidebar({ user }: DesktopSidebarProps) {
             })}
           </nav>
         </div>
-
-        {/* Administrator Access (visible only to admin & super_admin accounts) */}
-        {(user.role === "admin" || user.role === "super_admin") && (
-          <div className="pt-1">
-            <p className="px-3 text-[10px] font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-2">
-              Administration
-            </p>
-            <Link
-              href="/admin"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
-            >
-              <ShieldAlert className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
-              <span>Admin Management Portal</span>
-            </Link>
-          </div>
-        )}
       </div>
 
       {/* Monetization Upgrade Card */}

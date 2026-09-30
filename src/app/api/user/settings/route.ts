@@ -111,6 +111,8 @@ export async function PUT(request: Request) {
           ...(settings.quietHoursEnd !== undefined && { quietHoursEnd: settings.quietHoursEnd }),
           ...(settings.allowCriticalInQuietHours !== undefined && { allowCriticalInQuietHours: settings.allowCriticalInQuietHours }),
           ...(settings.soundEnabled !== undefined && { soundEnabled: settings.soundEnabled }),
+          ...(settings.onboardingCompleted !== undefined && { onboardingCompleted: Boolean(settings.onboardingCompleted) }),
+          ...(settings.onboardingStep !== undefined && { onboardingStep: Number(settings.onboardingStep) }),
         },
         create: {
           userId: user.id,
@@ -136,6 +138,8 @@ export async function PUT(request: Request) {
           quietHoursEnd: settings.quietHoursEnd || "07:00",
           allowCriticalInQuietHours: settings.allowCriticalInQuietHours ?? true,
           soundEnabled: settings.soundEnabled ?? true,
+          onboardingCompleted: settings.onboardingCompleted ?? false,
+          onboardingStep: settings.onboardingStep ?? 1,
         },
       });
     }

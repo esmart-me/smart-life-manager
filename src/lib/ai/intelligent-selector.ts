@@ -127,12 +127,14 @@ export function resolveRelevantTools(
     q.includes("cost") ||
     q.includes("receipt") ||
     q.includes("shopping") ||
-    q.includes("merchant");
+    q.includes("merchant") ||
+    q.includes("ledger");
 
   let needPayments =
     q.includes("payment") ||
     q.includes("pay") ||
     q.includes("bill") ||
+    q.includes("bills") ||
     q.includes("due") ||
     q.includes("unpaid") ||
     q.includes("rent") ||
@@ -140,7 +142,9 @@ export function resolveRelevantTools(
     q.includes("utilities") ||
     q.includes("electric") ||
     q.includes("loan") ||
-    q.includes("owe");
+    q.includes("owe") ||
+    q.includes("invoice") ||
+    q.includes("ledger");
 
   let needBudgets =
     q.includes("budget") ||
@@ -157,6 +161,8 @@ export function resolveRelevantTools(
     q.includes("gym") ||
     q.includes("recurring") ||
     q.includes("membership") ||
+    q.includes("plan") ||
+    q.includes("tier") ||
     q.includes("renewal") ||
     q.includes("streaming") ||
     q.includes("saas");
@@ -178,6 +184,13 @@ export function resolveRelevantTools(
     q.includes("brother") ||
     q.includes("sister") ||
     q.includes("emergency contact");
+
+  // Multi-module renewal / expiration intent (e.g. "When is my next renewal?")
+  if (q.includes("renewal") || q.includes("renew") || q.includes("expir")) {
+    needDocuments = true;
+    needVehicles = true;
+    needSubscriptions = true;
+  }
 
   // Multi-module intents (e.g. "What do I need to take care of this week?")
   if (q.includes("take care of") || q.includes("this week") || q.includes("action item")) {
@@ -468,9 +481,18 @@ export async function gatherCustomerContext(
     toolPromises.push(
       tools.getMySubscriptions().then((res) => {
         let block = "### Subscriptions & Recurring Commitments\n";
+        if (res.appSubscription) {
+          const renewDetails = res.appSubscription.currentPeriodEnd
+            ? `Renews: ${res.appSubscription.currentPeriodEnd}${res.appSubscription.daysRemaining !== null ? ` (in ${res.appSubscription.daysRemaining} days)` : ""}`
+            : "No renewal date";
+          block += `#### Smart Life Manager Membership Plan:\n`;
+          block += `- **Plan**: ${res.appSubscription.planName} (${res.appSubscription.currency} ${res.appSubscription.amount.toFixed(2)} / ${res.appSubscription.billingInterval}, Status: ${res.appSubscription.status.toUpperCase()}, ${renewDetails})\n\n`;
+        }
+
         if (res.subscriptions.length === 0) {
-          block += "No subscriptions tracked in your account.\n";
+          block += "No tracked lifestyle subscriptions in your account.\n";
         } else {
+          block += `#### Tracked Lifestyle Subscriptions:\n`;
           block += `${res.summary}\n`;
           for (const s of res.subscriptions) {
             const renewalStr = s.nextBillingDateFormatted
@@ -479,6 +501,14 @@ export async function gatherCustomerContext(
             block += `- **${s.name}**: ${s.currency} ${s.cost.toFixed(2)} / ${s.billingCycle} (Status: ${s.renewalStatus}, ${renewalStr})\n`;
           }
         }
+
+        if (res.billingHistory && res.billingHistory.length > 0) {
+          block += `\n#### Recent Subscription Payments:\n`;
+          for (const b of res.billingHistory) {
+            block += `- [${b.status.toUpperCase()}] **${b.plan.toUpperCase()} Plan**: ${b.currency} ${b.amount.toFixed(2)} on ${b.paymentDate.split("T")[0]} (Ref: ${b.transactionId})\n`;
+          }
+        }
+
         return block;
       })
     );

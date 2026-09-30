@@ -5,8 +5,12 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { prisma } from "@/lib/db/prisma";
-import { hashPassword } from "@/lib/auth/password";
-import { createSessionToken, setSessionCookie } from "@/lib/auth/session";
+import {
+  createSessionToken,
+  setSessionCookie,
+  setAdminSessionCookie,
+  isAuthorizedOwnerAdmin,
+} from "@/lib/auth/session";
 import {
   isGoogleOAuthConfigured,
   exchangeGoogleCodeForTokens,
@@ -14,6 +18,7 @@ import {
   parseAndValidateOAuthState,
 } from "@/lib/auth/google-oauth";
 import { UserRole } from "@/types";
+import { hashPassword } from "@/lib/auth/password";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +127,8 @@ export async function GET(request: Request) {
               reminderDaysBefore: 3,
               weeklyDigest: true,
               securityAlerts: true,
+              onboardingCompleted: false,
+              onboardingStep: 1,
             },
           },
           userSubscription: {
@@ -187,16 +194,26 @@ export async function GET(request: Request) {
       role: user.role as UserRole,
     });
 
-    // 9. Set session cookie
-    await setSessionCookie(token);
+    const isTargetingAdmin = returnTo.startsWith("/admin");
+    const isOwner = isAuthorizedOwnerAdmin(user.email, user.role);
 
-    // 10. Safe redirect: Normal customers must NEVER be redirected to the Admin Portal
-    let finalPath = returnTo;
-    if (finalPath.startsWith("/admin") && user.role !== "admin" && user.role !== "super_admin") {
-      finalPath = "/";
+    let finalPath = returnTo || "/";
+
+    if (isTargetingAdmin) {
+      if (isOwner) {
+        // Authorized Master Administrator: set dedicated admin session cookie
+        await setAdminSessionCookie(token);
+        finalPath = "/admin";
+      } else {
+        // Unauthorized customer attempting to log into admin: reject access
+        finalPath = "/admin/login?error=forbidden";
+      }
+    } else {
+      // Normal Customer Portal authentication: set customer session cookie
+      await setSessionCookie(token);
     }
 
-    const redirectTarget = new URL(finalPath || "/", url.origin);
+    const redirectTarget = new URL(finalPath, url.origin);
     const response = NextResponse.redirect(redirectTarget);
     // Clear CSRF state cookie
     response.cookies.set("google_oauth_state", "", { maxAge: 0, path: "/" });

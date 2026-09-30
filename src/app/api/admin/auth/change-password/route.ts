@@ -1,23 +1,15 @@
-// src/app/api/admin/auth/change-password/route.ts
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getCurrentUser, isAdmin } from "@/lib/auth/session";
+import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
+  const user = await getAdminUser();
   if (!user) {
     return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Administrator authentication required" } },
-      { status: 401 }
-    );
-  }
-
-  if (!isAdmin(user.role)) {
-    return NextResponse.json(
-      { success: false, error: { code: "FORBIDDEN", message: "Administrator privileges required" } },
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
       { status: 403 }
     );
   }

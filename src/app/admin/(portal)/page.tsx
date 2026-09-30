@@ -17,8 +17,45 @@ import {
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
 import { getAiConfigStatus } from "@/lib/ai/gemini-service";
+import { isRealStripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Executes a database query with a 5000ms safety timeout and default fallback.
+ * Prevents any secondary metric failure or SQLite lock delay from crashing the entire Admin Dashboard.
+ */
+async function safeQuery<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    const timeout = new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout fetching ${label}`)), 5000)
+    );
+    return await Promise.race([promise, timeout]);
+  } catch (error) {
+    console.error(`[AdminDashboard] Query failed for ${label}:`, error);
+    return fallback;
+  }
+}
+
+function formatDate(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  try {
+    const date = new Date(d);
+    return isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+  } catch {
+    return "";
+  }
+}
+
+function formatTime(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  try {
+    const date = new Date(d);
+    return isNaN(date.getTime()) ? "" : `${date.toISOString().slice(11, 16)} UTC`;
+  } catch {
+    return "";
+  }
+}
 
 export default async function AdminDashboardPage() {
   await requireAdmin();
@@ -26,7 +63,7 @@ export default async function AdminDashboardPage() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  // Fetch real database counts concurrently
+  // Fetch real database counts concurrently with individual fault tolerance
   const [
     totalCustomers,
     newCustomers,
@@ -38,62 +75,93 @@ export default async function AdminDashboardPage() {
     totalAiMessages,
   ] = await Promise.all([
     // Customers (non-admin accounts)
-    prisma.user.count({
-      where: { role: { in: ["user", "customer"] } },
-    }),
+    safeQuery(
+      prisma.user.count({
+        where: { role: { in: ["user", "customer"] } },
+      }),
+      0,
+      "totalCustomers"
+    ),
     // New Customers last 30d
-    prisma.user.count({
-      where: {
-        role: { in: ["user", "customer"] },
-        createdAt: { gte: thirtyDaysAgo },
-      },
-    }),
-    // Subscriptions breakdown (real DB rows)
-    prisma.userSubscription.findMany({
-      select: {
-        plan: true,
-        status: true,
-        billingInterval: true,
-        amount: true,
-        currency: true,
-      },
-    }),
-    // Billing transaction aggregates
-    prisma.billingTransaction.findMany({
-      select: {
-        amount: true,
-        currency: true,
-        status: true,
-        paymentDate: true,
-      },
-    }),
+    safeQuery(
+      prisma.user.count({
+        where: {
+          role: { in: ["user", "customer"] },
+          createdAt: { gte: thirtyDaysAgo },
+        },
+      }),
+      0,
+      "newCustomers"
+    ),
+    // Subscriptions breakdown (strictly customer accounts, excluding admin test records)
+    safeQuery(
+      prisma.userSubscription.findMany({
+        where: {
+          user: { role: { in: ["user", "customer"] } },
+        },
+        select: {
+          plan: true,
+          status: true,
+          billingInterval: true,
+          amount: true,
+          currency: true,
+        },
+      }),
+      [],
+      "userSubs"
+    ),
+    // Billing transaction aggregates (strictly customer accounts, excluding admin test records)
+    safeQuery(
+      prisma.billingTransaction.findMany({
+        where: {
+          user: { role: { in: ["user", "customer"] } },
+        },
+        select: {
+          amount: true,
+          currency: true,
+          status: true,
+          paymentDate: true,
+        },
+      }),
+      [],
+      "billingStats"
+    ),
     // Recent audit logs
-    prisma.adminAuditLog.findMany({
-      take: 6,
-      orderBy: { createdAt: "desc" },
-    }),
+    safeQuery(
+      prisma.adminAuditLog.findMany({
+        take: 6,
+        orderBy: { createdAt: "desc" },
+      }),
+      [],
+      "recentAudits"
+    ),
     // Recent customers
-    prisma.user.findMany({
-      where: { role: { in: ["user", "customer"] } },
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: {
-        profile: true,
-        userSubscription: true,
-      },
-    }),
+    safeQuery(
+      prisma.user.findMany({
+        where: { role: { in: ["user", "customer"] } },
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        include: {
+          profile: true,
+          userSubscription: true,
+        },
+      }),
+      [],
+      "recentCustomers"
+    ),
     // AI metrics
-    prisma.aiConversation.count(),
-    prisma.aiMessage.count(),
+    safeQuery(prisma.aiConversation.count(), 0, "totalAiConversations"),
+    safeQuery(prisma.aiMessage.count(), 0, "totalAiMessages"),
   ]);
 
   const aiStatus = getAiConfigStatus();
+  const isStripeConfigured = isRealStripeConfigured();
 
-  // Compute subscription numbers from real database records
+  // Compute subscription numbers from real customer database records
   let freeUsers = 0;
   let premiumUsers = 0;
   let familyUsers = 0;
-  let activeSubscriptions = 0;
+  let payingCustomers = 0;
   let cancelledSubscriptions = 0;
   let actualMRR = 0;
 
@@ -103,7 +171,7 @@ export default async function AdminDashboardPage() {
     else if (sub.plan === "family") familyUsers++;
 
     if (sub.status === "active" && (sub.plan === "premium" || sub.plan === "family")) {
-      activeSubscriptions++;
+      payingCustomers++;
       const monthlyAmount =
         sub.billingInterval === "yearly" ? sub.amount / 12 : sub.amount;
       actualMRR += monthlyAmount || 0;
@@ -112,16 +180,16 @@ export default async function AdminDashboardPage() {
     }
   }
 
-  // Any user without an explicit subscription row is counted as free
+  // Any registered customer without an explicit subscription row is counted as free
   const usersWithSubs = userSubs.length;
   if (totalCustomers > usersWithSubs) {
     freeUsers += totalCustomers - usersWithSubs;
   }
 
-  // Active customers: users with an active status
-  const activeCustomers = totalCustomers - cancelledSubscriptions;
+  // Active customers: registered customers who have not cancelled their tier
+  const activeCustomers = Math.max(0, totalCustomers - cancelledSubscriptions);
 
-  // Compute payment transactions from real database rows
+  // Compute payment transactions from real customer database rows
   let successfulPayments = 0;
   let failedPayments = 0;
   let totalRevenueUSD = 0;
@@ -136,7 +204,6 @@ export default async function AdminDashboardPage() {
   }
 
   const actualARR = actualMRR * 12;
-  const hasRevenueData = actualMRR > 0 || totalRevenueUSD > 0;
 
   const kpis = [
     {
@@ -149,8 +216,8 @@ export default async function AdminDashboardPage() {
     },
     {
       title: "Active Customers",
-      value: (activeCustomers > 0 ? activeCustomers : totalCustomers).toLocaleString(),
-      subtext: `${activeSubscriptions} paying, ${freeUsers} free`,
+      value: activeCustomers.toLocaleString(),
+      subtext: `${payingCustomers} paying, ${freeUsers} free`,
       icon: Activity,
       color: "text-emerald-400",
       bg: "bg-emerald-950/40 border-emerald-800/60",
@@ -181,20 +248,20 @@ export default async function AdminDashboardPage() {
     },
     {
       title: "Monthly Recurring (MRR)",
-      value: hasRevenueData ? `$${actualMRR.toFixed(2)}` : "$0.00",
-      subtext: hasRevenueData
-        ? `From ${activeSubscriptions} active paid subscription(s)`
-        : "Revenue data not configured",
+      value: payingCustomers > 0 ? `$${actualMRR.toFixed(2)}` : "$0.00",
+      subtext: payingCustomers > 0
+        ? `From ${payingCustomers} active paid subscription(s)`
+        : "0 active paying customers",
       icon: DollarSign,
       color: "text-amber-400",
       bg: "bg-amber-950/40 border-amber-800/60",
     },
     {
       title: "Annual Revenue (ARR)",
-      value: hasRevenueData ? `$${actualARR.toFixed(2)}` : "$0.00",
-      subtext: hasRevenueData
+      value: payingCustomers > 0 ? `$${actualARR.toFixed(2)}` : "$0.00",
+      subtext: payingCustomers > 0
         ? "Projected annual recurring run-rate"
-        : "Revenue data not configured",
+        : "0 active paying customers",
       icon: TrendingUp,
       color: "text-cyan-400",
       bg: "bg-cyan-950/40 border-cyan-800/60",
@@ -205,7 +272,7 @@ export default async function AdminDashboardPage() {
       subtext:
         totalRevenueUSD > 0
           ? `$${totalRevenueUSD.toFixed(2)} total collected`
-          : "Revenue data not configured",
+          : "0 customer transactions",
       icon: CheckCircle,
       color: "text-emerald-400",
       bg: "bg-emerald-950/40 border-emerald-800/60",
@@ -370,6 +437,72 @@ export default async function AdminDashboardPage() {
         )}
       </div>
 
+      {/* Payment Gateway & Billing Infrastructure Status */}
+      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/20">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white">Payment Gateway &amp; Billing Infrastructure</h3>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  PCI-DSS Compliant
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Stripe payment gateway orchestration and recurring subscription billing ledger
+              </p>
+            </div>
+          </div>
+
+          <div>
+            {isStripeConfigured ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800 text-xs font-semibold">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                Live Stripe Integration Active
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800 text-xs font-semibold">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                Stripe webhook/keys not configured in production - Running in sandbox mode
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Gateway Provider</span>
+            <p className="font-bold text-slate-200 text-sm">Stripe</p>
+            <p className="text-[11px] text-slate-400">Official Stripe Node SDK</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Runtime Mode</span>
+            <p className={`font-bold text-sm ${isStripeConfigured ? "text-emerald-400" : "text-amber-400"}`}>
+              {isStripeConfigured ? "Production Live" : "Sandbox Simulation"}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {isStripeConfigured ? "Real payment card charges" : "Simulated test checkouts"}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Active Paid Subscriptions</span>
+            <p className="font-bold text-white text-sm">{payingCustomers}</p>
+            <p className="text-[11px] text-slate-400">Real paying customers</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Collected Revenue</span>
+            <p className="font-bold text-white text-sm">${totalRevenueUSD.toFixed(2)}</p>
+            <p className="text-[11px] text-slate-400">Total customer receipts</p>
+          </div>
+        </div>
+      </div>
+
       {/* Two Column Layout: Recent Customers & Recent Audit Trail */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Customers */}
@@ -421,7 +554,7 @@ export default async function AdminDashboardPage() {
                       {c.userSubscription?.plan || "free"}
                     </span>
                     <p className="text-[10px] text-slate-500">
-                      {new Date(c.createdAt).toLocaleDateString()}
+                      {formatDate(c.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -465,7 +598,7 @@ export default async function AdminDashboardPage() {
                     </p>
                   </div>
                   <span className="text-[10px] text-slate-500">
-                    {new Date(a.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {formatTime(a.createdAt)}
                   </span>
                 </div>
               ))

@@ -1,6 +1,5 @@
-// src/app/api/admin/customers/[id]/route.ts
 import { NextResponse } from "next/server";
-import { getCurrentUser, isAdmin } from "@/lib/auth/session";
+import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -9,17 +8,10 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
+  const admin = await getAdminUser();
+  if (!admin) {
     return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
-      { status: 401 }
-    );
-  }
-
-  if (!isAdmin(user.role)) {
-    return NextResponse.json(
-      { success: false, error: { code: "FORBIDDEN", message: "Administrator access required" } },
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
       { status: 403 }
     );
   }
@@ -87,7 +79,7 @@ export async function GET(
     }
 
     // Concurrently fetch this customer's actual module records (strictly scoped to userId)
-    const [docs, rems, pays, exps, vechs, subs, dates, family] = await Promise.all([
+    const [docs, rems, pays, exps, vechs, subs, dates, family, billingTxs] = await Promise.all([
       prisma.document.findMany({
         where: { userId: id },
         orderBy: { createdAt: "desc" },
@@ -190,6 +182,26 @@ export async function GET(
           name: true,
           relationship: true,
           emergencyContact: true,
+        },
+      }),
+      prisma.billingTransaction.findMany({
+        where: { userId: id },
+        orderBy: { paymentDate: "desc" },
+        take: 25,
+        select: {
+          id: true,
+          transactionId: true,
+          plan: true,
+          amount: true,
+          currency: true,
+          status: true,
+          paymentProvider: true,
+          paymentDate: true,
+          failureReason: true,
+          utrNumber: true,
+          receiptUrl: true,
+          verifiedAt: true,
+          verifiedBy: true,
         },
       }),
     ]);
@@ -318,6 +330,21 @@ export async function GET(
           relationship: f.relationship,
           emergencyContact: f.emergencyContact,
         })),
+        billingTransactions: billingTxs.map((tx) => ({
+          id: tx.id,
+          transactionId: tx.transactionId,
+          plan: tx.plan,
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          paymentProvider: tx.paymentProvider,
+          paymentDate: tx.paymentDate.toISOString(),
+          failureReason: tx.failureReason,
+          utrNumber: tx.utrNumber,
+          receiptUrl: tx.receiptUrl,
+          verifiedAt: tx.verifiedAt ? tx.verifiedAt.toISOString() : null,
+          verifiedBy: tx.verifiedBy,
+        })),
       },
     };
 
@@ -338,17 +365,10 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
+  const admin = await getAdminUser();
+  if (!admin) {
     return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
-      { status: 401 }
-    );
-  }
-
-  if (!isAdmin(user.role)) {
-    return NextResponse.json(
-      { success: false, error: { code: "FORBIDDEN", message: "Administrator access required" } },
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
       { status: 403 }
     );
   }
@@ -358,7 +378,10 @@ export async function PATCH(
   try {
     const customer = await prisma.user.findUnique({
       where: { id },
-      include: { userSubscription: true },
+      include: {
+        profile: true,
+        userSubscription: true,
+      },
     });
 
     if (!customer) {
@@ -369,10 +392,61 @@ export async function PATCH(
     }
 
     const body = await request.json().catch(() => ({}));
-    const { status, role } = body;
+    const {
+      firstName,
+      lastName,
+      displayName,
+      phoneNumber,
+      country,
+      currency,
+      timezone,
+      status,
+      emailVerified,
+    } = body;
 
+    // 1. Update Profile if relevant fields are passed
+    const profileUpdates: Record<string, any> = {};
+    if (typeof firstName === "string") profileUpdates.firstName = firstName.trim();
+    if (typeof lastName === "string") profileUpdates.lastName = lastName.trim();
+    if (typeof displayName === "string") profileUpdates.displayName = displayName.trim();
+    if (typeof phoneNumber === "string") profileUpdates.phoneNumber = phoneNumber.trim();
+    if (typeof country === "string") profileUpdates.country = country.trim().toUpperCase();
+    if (typeof currency === "string") profileUpdates.currency = currency.trim().toUpperCase();
+    if (typeof timezone === "string") profileUpdates.timezone = timezone.trim();
+
+    if (Object.keys(profileUpdates).length > 0) {
+      await prisma.profile.upsert({
+        where: { userId: id },
+        update: profileUpdates,
+        create: {
+          userId: id,
+          firstName: profileUpdates.firstName || "",
+          lastName: profileUpdates.lastName || "",
+          displayName: profileUpdates.displayName || customer.email.split("@")[0],
+          phoneNumber: profileUpdates.phoneNumber || null,
+          country: profileUpdates.country || "US",
+          region: profileUpdates.country || "US",
+          currency: profileUpdates.currency || "USD",
+          timezone: profileUpdates.timezone || "UTC",
+        },
+      });
+    }
+
+    // 2. Update user status/verification (Never allow changing role to admin or editing passwordHash here)
+    const userUpdates: Record<string, any> = {};
+    if (typeof emailVerified === "boolean") {
+      userUpdates.emailVerified = emailVerified;
+    }
+    if (Object.keys(userUpdates).length > 0) {
+      await prisma.user.update({
+        where: { id },
+        data: userUpdates,
+      });
+    }
+
+    // 3. Update subscription status if specified
     let updatedSubscription = customer.userSubscription;
-    if (status) {
+    if (status && typeof status === "string") {
       if (customer.userSubscription) {
         updatedSubscription = await prisma.userSubscription.update({
           where: { userId: id },
@@ -393,40 +467,46 @@ export async function PATCH(
       }
     }
 
-    let updatedRole = customer.role;
-    if (role && (role === "user" || role === "admin")) {
-      const updatedUser = await prisma.user.update({
-        where: { id },
-        data: { role },
-      });
-      updatedRole = updatedUser.role;
-    }
-
+    // 4. Record Audit Log
     await prisma.adminAuditLog.create({
       data: {
-        adminId: user.id,
-        adminEmail: user.email,
-        action: "customer_status_updated",
+        adminId: admin.id,
+        adminEmail: admin.email,
+        action: "customer_details_edited",
         targetType: "user",
         targetId: id,
-        details: JSON.stringify({ status, role }),
+        details: JSON.stringify({
+          editedFields: Object.keys(profileUpdates),
+          status,
+          emailVerified,
+        }),
         ipAddress: request.headers.get("x-forwarded-for") || "127.0.0.1",
+      },
+    });
+
+    // 5. Fetch updated customer state
+    const refreshed = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        profile: true,
+        userSubscription: true,
       },
     });
 
     return NextResponse.json({
       success: true,
+      message: "Customer details updated successfully.",
       data: {
         id,
-        email: customer.email,
-        role: updatedRole,
-        subscriptionStatus: updatedSubscription?.status || "active",
+        email: refreshed?.email,
+        profile: refreshed?.profile,
+        subscriptionStatus: refreshed?.userSubscription?.status || "active",
       },
     });
   } catch (error: unknown) {
-    console.error("[Admin API] Failed to update customer status:", error);
+    console.error("[Admin API] Failed to update customer details:", error);
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: "Failed to update customer status" } },
+      { success: false, error: { code: "SERVER_ERROR", message: "Failed to update customer details" } },
       { status: 500 }
     );
   }

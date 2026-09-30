@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function AdminPaymentsPage() {
   await requireAdmin();
   const transactions = await prisma.billingTransaction.findMany({
+    where: {
+      user: { role: { in: ["user", "customer"] } },
+    },
     orderBy: { paymentDate: "desc" },
     include: {
       user: {
@@ -32,6 +35,9 @@ export default async function AdminPaymentsPage() {
     paymentProvider: t.paymentProvider,
     paymentDate: t.paymentDate.toISOString(),
     failureReason: t.failureReason,
+    utrNumber: t.utrNumber,
+    receiptUrl: t.receiptUrl,
+    notes: t.notes,
   }));
 
   return (

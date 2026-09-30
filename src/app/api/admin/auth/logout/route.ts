@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { clearSessionCookie, getCurrentUser } from "@/lib/auth/session";
+import { clearAdminSessionCookie, getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getAdminUser();
     if (user && (user.role === "admin" || user.role === "super_admin")) {
       await prisma.adminAuditLog.create({
         data: {
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       });
     }
 
-    await clearSessionCookie();
+    await clearAdminSessionCookie();
 
     return NextResponse.json({
       success: true,

@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/session";
+import { getAdminUser } from "@/lib/auth/session";
 import { updateRegionalPricing, getAllRegionalPricings } from "@/lib/plans/regional-pricing";
 
 export async function GET() {
+  const admin = await getAdminUser();
+  if (!admin) {
+    return NextResponse.json(
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
+      { status: 403 }
+    );
+  }
+
   try {
-    await requireAdmin();
     const pricings = await getAllRegionalPricings();
     return NextResponse.json({
       success: true,
@@ -13,15 +20,22 @@ export async function GET() {
   } catch (error) {
     console.error("[Admin Regional Plans GET Error]:", error);
     return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Admin access required." } },
-      { status: 403 }
+      { success: false, error: { code: "SERVER_ERROR", message: "Failed to retrieve regional pricing." } },
+      { status: 500 }
     );
   }
 }
 
 export async function PUT(req: NextRequest) {
+  const admin = await getAdminUser();
+  if (!admin) {
+    return NextResponse.json(
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
+      { status: 403 }
+    );
+  }
+
   try {
-    const admin = await requireAdmin();
 
     const body = await req.json().catch(() => ({}));
     const { plan, regionCode, monthlyPrice, yearlyPrice, enabled } = body;

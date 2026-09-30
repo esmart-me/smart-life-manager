@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/session";
+import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export async function POST(req: NextRequest) {
-  try {
-    const admin = await requireAdmin();
+  const admin = await getAdminUser();
+  if (!admin) {
+    return NextResponse.json(
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
+      { status: 403 }
+    );
+  }
 
+  try {
     const body = await req.json().catch(() => ({}));
     const { userId, plan, status, reason } = body;
 

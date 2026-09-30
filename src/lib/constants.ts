@@ -5,6 +5,7 @@ export const APP_CONFIG = {
   tagline: "Never miss an important expiry date, payment, or life event.",
   version: "0.1.0",
   cookieName: "slm_session",
+  adminCookieName: "slm_admin_session",
   sessionMaxAge: 60 * 60 * 24 * 30, // 30 days in seconds (persistent session)
 };
 

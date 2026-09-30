@@ -71,6 +71,68 @@ export interface GenerateAiResult {
 }
 
 /**
+ * Sanitizes upstream Gemini errors into user-friendly messages without leaking
+ * technical stack traces, system paths, or credential strings.
+ * Covers: 400, 401, 403, 404, 429, 500, timeouts, and network connection drops.
+ */
+export function sanitizeAiErrorMessage(rawMsg: string, model: string): string {
+  if (
+    rawMsg.includes("429") ||
+    rawMsg.includes("RESOURCE_EXHAUSTED") ||
+    rawMsg.includes("quota") ||
+    rawMsg.includes("rate limit")
+  ) {
+    return "The AI Assistant is currently experiencing high demand. Please try again in a few moments.";
+  }
+  if (
+    rawMsg.includes("401") ||
+    rawMsg.includes("UNAUTHENTICATED") ||
+    rawMsg.includes("API key not valid") ||
+    rawMsg.includes("API_KEY_INVALID")
+  ) {
+    return "The AI Assistant service configuration needs attention. Please contact support or verify server settings.";
+  }
+  if (
+    rawMsg.includes("403") ||
+    rawMsg.includes("PERMISSION_DENIED")
+  ) {
+    return "The AI Assistant service is temporarily unavailable due to project permissions. Please verify server configuration.";
+  }
+  if (
+    rawMsg.includes("404") ||
+    rawMsg.includes("NOT_FOUND")
+  ) {
+    return "The requested AI model is currently updating. Please try again in a moment.";
+  }
+  if (
+    rawMsg.includes("503") ||
+    rawMsg.includes("500") ||
+    rawMsg.includes("UNAVAILABLE") ||
+    rawMsg.includes("high demand") ||
+    rawMsg.includes("INTERNAL")
+  ) {
+    return "The AI service is temporarily busy. Please wait a moment and send your message again.";
+  }
+  if (
+    rawMsg.includes("400") ||
+    rawMsg.includes("INVALID_ARGUMENT") ||
+    rawMsg.includes("SAFETY") ||
+    rawMsg.includes("HARM")
+  ) {
+    return "Your message could not be processed as phrased. Please try rephrasing your question.";
+  }
+  if (
+    rawMsg.includes("timeout") ||
+    rawMsg.includes("ETIMEDOUT") ||
+    rawMsg.includes("ECONNRESET") ||
+    rawMsg.includes("fetch failed")
+  ) {
+    return "A network timeout occurred while communicating with the AI service. Please check your connection and try again.";
+  }
+  return "Unable to complete AI request right now. Please try again in a moment.";
+}
+
+/**
  * Generates an AI assistant response grounded in the customer's isolated life data.
  * Throws a descriptive error if the API key is unconfigured.
  */
@@ -169,30 +231,11 @@ export async function generateAiResponse({
       }
 
       if (!fallbackSucceeded) {
-        // Sanitize clean, useful application error without leaking credentials or stack traces
-        if (rawMsg.includes("429") || rawMsg.includes("RESOURCE_EXHAUSTED") || rawMsg.includes("quota")) {
-          throw new Error(
-            `The AI service has reached its daily quota limit for model ${activeModel}. Please try again later or check your Google AI Studio plan.`
-          );
-        }
-        if (rawMsg.includes("503") || rawMsg.includes("UNAVAILABLE") || rawMsg.includes("high demand")) {
-          throw new Error(
-            `The AI service (${activeModel}) is temporarily experiencing high demand. Please try again in a few moments.`
-          );
-        }
-        if (rawMsg.includes("404") || rawMsg.includes("NOT_FOUND")) {
-          throw new Error(
-            `The requested AI model (${activeModel}) is not available. Please verify model configuration.`
-          );
-        }
-        throw new Error("An error occurred while communicating with the AI service. Please try again.");
+        throw new Error(sanitizeAiErrorMessage(rawMsg, activeModel));
       }
     } else {
-      // Non-recoverable error (e.g. invalid key format)
-      if (rawMsg.includes("API key not valid") || rawMsg.includes("API_KEY_INVALID")) {
-        throw new Error("The configured GEMINI_API_KEY is invalid. Please check your API key in server settings.");
-      }
-      throw new Error("An error occurred while communicating with the AI service. Please try again.");
+      // Non-recoverable error (e.g. invalid key format, 400, 401, 403)
+      throw new Error(sanitizeAiErrorMessage(rawMsg, activeModel));
     }
   }
 

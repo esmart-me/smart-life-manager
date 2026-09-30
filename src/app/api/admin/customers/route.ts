@@ -1,22 +1,14 @@
-// src/app/api/admin/customers/route.ts
 import { NextResponse } from "next/server";
-import { getCurrentUser, isAdmin } from "@/lib/auth/session";
+import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
+  const admin = await getAdminUser();
+  if (!admin) {
     return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
-      { status: 401 }
-    );
-  }
-
-  if (!isAdmin(user.role)) {
-    return NextResponse.json(
-      { success: false, error: { code: "FORBIDDEN", message: "Administrator access required" } },
+      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
       { status: 403 }
     );
   }
