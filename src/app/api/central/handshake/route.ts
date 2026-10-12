@@ -9,6 +9,7 @@ import {
   recordCentralLoginEvent,
   registerCentralDevice,
   getCentralCustomerData,
+  mutateCentralSubscription,
 } from "@/lib/supabase/server";
 import { isSupabaseServerAdminConfigured } from "@/lib/supabase/config";
 import {
@@ -66,7 +67,34 @@ export async function POST(request: Request) {
 
         // Authoritatively query central entitlement
         const centralData = await getCentralCustomerData(user.id);
-        const entitlement = computeEntitlement(centralData.subscription, centralData.profile);
+        let entitlement: any;
+
+        if (centralData && centralData.subscription) {
+          entitlement = computeEntitlement(centralData.subscription, centralData.profile);
+        } else {
+          // If Central Supabase has no subscription record yet, consult local SQLite
+          const localSub = await prisma.userSubscription.findUnique({
+            where: { userId: user.id },
+          }).catch(() => null);
+          const localProfile = await prisma.profile.findUnique({
+            where: { userId: user.id },
+          }).catch(() => null);
+          entitlement = computeEntitlement(localSub, centralData?.profile || localProfile);
+
+          // If local active subscription is found, keep central updated
+          if (entitlement.premiumEnabled && localSub) {
+            const centralStatus: "active" | "expired" | "canceled" =
+              localSub.status === "active" ? "active" : localSub.status === "expired" ? "expired" : "canceled";
+            mutateCentralSubscription({
+              customerId: user.id,
+              plan: "premium",
+              status: centralStatus,
+              expiresAt: localSub.currentPeriodEnd ? localSub.currentPeriodEnd.toISOString() : null,
+              adminEmail: user.email,
+              reason: "Handshake sync from local active subscription",
+            }).catch(() => {});
+          }
+        }
 
         // Update local secure cache for offline resilience
         saveCachedEntitlement(user.id, entitlement);
@@ -101,11 +129,12 @@ export async function POST(request: Request) {
     const offlineResult = resolveOfflineEntitlement(user.id);
     let effectiveEntitlement = offlineResult.entitlement;
 
-    // If local subscription is expired or canceled, enforce downgrade
+    // Honor local subscription authoritatively
     if (localSub) {
       const computedLocal = computeEntitlement(localSub, localProfile);
-      if (computedLocal.status === "expired" || computedLocal.status === "canceled") {
+      if (computedLocal.premiumEnabled || computedLocal.status === "expired" || computedLocal.status === "canceled") {
         effectiveEntitlement = computedLocal;
+        saveCachedEntitlement(user.id, effectiveEntitlement);
       }
     }
 

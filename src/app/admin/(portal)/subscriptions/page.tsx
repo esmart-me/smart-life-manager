@@ -18,28 +18,37 @@ export default async function AdminSubscriptionsPage() {
     },
   });
 
-  // Pre-seed regional pricings once before parallel user mapping to guarantee clean concurrency
-  await ensureDefaultRegionalPricings().catch((err: any) => {
-    console.warn("[Admin Subscriptions] Pre-seed warning:", err);
-  });
+  // Preload regional pricings in a single query to eliminate N+1 database queries
+  const allPricings = await prisma.planRegionalPricing.findMany().catch(() => []);
+  const pricingMap = new Map<string, { amount: number; currency: string; currencySymbol: string; regionCode: string }>();
+  for (const p of allPricings) {
+    pricingMap.set(`${p.plan.toLowerCase()}_${p.regionCode.toUpperCase()}_monthly`, {
+      amount: p.monthlyPrice,
+      currency: p.currency,
+      currencySymbol: p.currencySymbol,
+      regionCode: p.regionCode,
+    });
+    pricingMap.set(`${p.plan.toLowerCase()}_${p.regionCode.toUpperCase()}_yearly`, {
+      amount: p.yearlyPrice,
+      currency: p.currency,
+      currencySymbol: p.currencySymbol,
+      regionCode: p.regionCode,
+    });
+  }
 
-  const subDTOs: SubscriptionDTO[] = await Promise.all(
-    users.map(async (u) => {
-      const plan = u.userSubscription?.plan || "free";
-      const region = u.profile?.country || "US";
-      const interval = (u.userSubscription?.billingInterval as any) || "monthly";
+  const subDTOs: SubscriptionDTO[] = users.map((u) => {
+    const plan = u.userSubscription?.plan || "free";
+    const region = u.profile?.country || "US";
+    const interval = (u.userSubscription?.billingInterval as any) || "monthly";
 
-      let priceInfo = {
-        amount: 0,
-        currency: "USD",
-        currencySymbol: "$",
-        regionCode: region,
-      };
-      try {
-        priceInfo = await getAuthoritativePlanPrice(plan, region, interval);
-      } catch (priceErr) {
-        console.warn(`[Admin Subscriptions] Price lookup fallback for user ${u.id}:`, priceErr);
-      }
+    const key = `${plan.toLowerCase()}_${region.toUpperCase()}_${interval}`;
+    const defaultKey = `${plan.toLowerCase()}_US_${interval}`;
+    const priceInfo = pricingMap.get(key) || pricingMap.get(defaultKey) || {
+      amount: 0,
+      currency: "USD",
+      currencySymbol: "$",
+      regionCode: region,
+    };
 
       return {
         id: u.userSubscription?.id || `sub_${u.id}`,
@@ -67,8 +76,7 @@ export default async function AdminSubscriptionsPage() {
         paymentProvider: u.userSubscription?.provider || "stripe",
         providerSubscriptionId: u.userSubscription?.providerSubscriptionId || null,
       };
-    })
-  );
+    });
 
   return (
     <div className="space-y-6">

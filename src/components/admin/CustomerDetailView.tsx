@@ -21,6 +21,7 @@ import {
   Loader2,
   Sparkles,
   Globe,
+  Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -97,6 +98,11 @@ export function CustomerDetailView({ customer }: CustomerDetailViewProps) {
   const [editSaving, setEditSaving] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Deactivate Modal State
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deactivateConfirmText, setDeactivateConfirmText] = useState("");
+  const [isDeactivating, setIsDeactivating] = useState(false);
+
   const isSuspended = accountStatus === "suspended";
   const isPremium = customer.subscription.premiumEnabled;
 
@@ -169,6 +175,39 @@ export function CustomerDetailView({ customer }: CustomerDetailViewProps) {
       setActionMessage({ type: "error", text: err.message || "Network error" });
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (deactivateConfirmText !== "DELETE") return;
+    setIsDeactivating(true);
+    setActionMessage(null);
+
+    try {
+      const res = await fetch(`/api/admin/customers/${customer.account.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmText: "DELETE" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAccountStatus("archived");
+        setShowDeactivateModal(false);
+        setActionMessage({
+          type: "success",
+          text: `Customer account deactivated and archived successfully.`,
+        });
+        router.refresh();
+      } else {
+        setActionMessage({
+          type: "error",
+          text: data.error?.message || "Failed to deactivate account",
+        });
+      }
+    } catch (err: any) {
+      setActionMessage({ type: "error", text: err.message || "Network error" });
+    } finally {
+      setIsDeactivating(false);
     }
   };
 
@@ -294,6 +333,19 @@ export function CustomerDetailView({ customer }: CustomerDetailViewProps) {
                 <UserX className="w-3.5 h-3.5 mr-1.5" />
               )}
               <span>{isSuspended ? "Reactivate Account" : "Suspend Account"}</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setDeactivateConfirmText("");
+                setShowDeactivateModal(true);
+              }}
+              className="text-xs h-8 border-rose-900/50 bg-rose-950/40 hover:bg-rose-900/50 text-rose-300"
+              title="Deactivate / Archive Customer Account"
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              <span>Deactivate Account</span>
             </Button>
           </div>
         </div>
@@ -689,6 +741,77 @@ export function CustomerDetailView({ customer }: CustomerDetailViewProps) {
                   <Save className="w-3.5 h-3.5 mr-1.5" />
                 )}
                 Save Control Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DEACTIVATION / ARCHIVE CONFIRMATION MODAL */}
+      {showDeactivateModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-900/60 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="w-10 h-10 rounded-xl bg-rose-950/80 border border-rose-800/80 flex items-center justify-center text-rose-400 shrink-0">
+                <UserX className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Deactivate Customer Account</h3>
+                <p className="text-[11px] text-slate-400 font-mono">{customer.account.email}</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-950/30 border border-rose-900/40 text-xs text-rose-200/90 space-y-2">
+              <p className="font-semibold text-rose-300">Safe Deactivation Policy:</p>
+              <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-300">
+                <li>Account status will be changed to <strong className="text-white">Archived</strong>.</li>
+                <li>Any active subscription and premium privileges will be canceled.</li>
+                <li>All local customer data (documents, expenses, vehicles, etc.) is preserved safely.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <label className="block text-slate-300 font-medium">
+                To confirm deactivation, type <span className="font-mono text-rose-400 font-bold">DELETE</span> below:
+              </label>
+              <input
+                type="text"
+                placeholder="DELETE"
+                value={deactivateConfirmText}
+                onChange={(e) => setDeactivateConfirmText(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white font-mono text-xs focus:border-rose-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowDeactivateModal(false);
+                  setDeactivateConfirmText("");
+                }}
+                className="text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleDeactivate}
+                disabled={deactivateConfirmText !== "DELETE" || isDeactivating}
+                className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs gap-1.5"
+              >
+                {isDeactivating ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deactivating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Deactivate Customer</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>

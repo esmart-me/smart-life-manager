@@ -7,6 +7,7 @@ import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { isSupabaseServerAdminConfigured } from "@/lib/supabase/config";
 import { getCentralCustomerDetail, mutateCentralSubscription, createServerAdminSupabaseClient } from "@/lib/supabase/server";
+import { saveCachedEntitlement } from "@/lib/entitlement/entitlement-service";
 
 export const dynamic = "force-dynamic";
 
@@ -338,7 +339,47 @@ export async function DELETE(
 
   const { id } = await context.params;
 
+  // Self-deletion protection
+  if (admin.id === id) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Cannot deactivate or delete your own administrator account.",
+        },
+      },
+      { status: 400 }
+    );
+  }
+
   try {
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true, status: true },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Customer account not found." } },
+        { status: 404 }
+      );
+    }
+
+    // Role protection: Cannot delete admin accounts
+    if (targetUser.role === "admin" || targetUser.role === "super_admin") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "Cannot delete or deactivate administrator accounts from customer management.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     if (body.confirmText !== "DELETE") {
       return NextResponse.json(
@@ -353,9 +394,9 @@ export async function DELETE(
       );
     }
 
-    // PRIVACY COMPLIANT SUSPENSION / ARCHIVAL:
+    // PRIVACY COMPLIANT DEACTIVATION / ARCHIVAL:
     // We strictly DO NOT delete or alter customer private SQLite records (documents, expenses, vehicles, etc.).
-    // We suspend the central account status and cancel the subscription entitlement.
+    // We deactivate the account status, cancel any active subscription, and neutralize cached entitlement.
     await prisma.$transaction([
       prisma.user.update({
         where: { id },
@@ -373,6 +414,7 @@ export async function DELETE(
           targetType: "user",
           targetId: id,
           details: JSON.stringify({
+            targetEmail: targetUser.email,
             reason: "Account deactivated and archived from admin control plane. Customer private data remains untouched.",
           }),
           ipAddress: request.headers.get("x-forwarded-for") || "127.0.0.1",
@@ -380,10 +422,41 @@ export async function DELETE(
       }),
     ]);
 
+    // Neutralize local entitlement cache
+    saveCachedEntitlement(id, {
+      plan: "basic",
+      status: "canceled",
+      startsAt: null,
+      expiresAt: null,
+      premiumEnabled: false,
+      accountStatus: "archived",
+      appAccessAllowed: true,
+      lastVerifiedAt: new Date().toISOString(),
+      serverTime: new Date().toISOString(),
+      daysRemaining: 0,
+    });
+
+    // Synchronize to Central Supabase if configured
+    const adminClient = createServerAdminSupabaseClient();
+    if (adminClient) {
+      try {
+        await adminClient
+          .from("customer_profiles")
+          .update({ account_status: "archived", updated_at: new Date().toISOString() })
+          .eq("id", id);
+        await adminClient
+          .from("subscriptions")
+          .update({ status: "canceled", updated_at: new Date().toISOString() })
+          .eq("customer_id", id);
+      } catch (centralErr) {
+        console.warn("[Admin Customer Delete] Central sync warning:", centralErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       mode: "archived",
-      message: "Customer account deactivated and archived safely. Customer private data remains untouched.",
+      message: `Customer account ${targetUser.email} deactivated and archived safely. Customer private data remains untouched.`,
     });
   } catch (error: any) {
     console.error("[Admin API] Failed to archive customer:", error);

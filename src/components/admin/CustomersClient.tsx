@@ -479,6 +479,18 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
                         >
                           {c.status === "suspended" ? "Activate" : "Suspend"}
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setDeactivatingCustomer(c);
+                            setConfirmText("");
+                          }}
+                          className="h-7 px-2 text-rose-400 hover:text-white hover:bg-rose-950/40 text-xs"
+                          title="Deactivate / Archive Account"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -814,6 +826,77 @@ export function CustomersClient({ initialCustomers }: CustomersClientProps) {
                 className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs"
               >
                 {isSavingEdit ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DEACTIVATION / ARCHIVE CONFIRMATION MODAL */}
+      {deactivatingCustomer && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-900/60 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="w-10 h-10 rounded-xl bg-rose-950/80 border border-rose-800/80 flex items-center justify-center text-rose-400 shrink-0">
+                <UserX className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Deactivate Customer Account</h3>
+                <p className="text-[11px] text-slate-400 font-mono">{deactivatingCustomer.email}</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-950/30 border border-rose-900/40 text-xs text-rose-200/90 space-y-2">
+              <p className="font-semibold text-rose-300">Safe Deactivation Policy:</p>
+              <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-300">
+                <li>Account status will be changed to <strong className="text-white">Archived</strong>.</li>
+                <li>Any active subscription and premium privileges will be canceled.</li>
+                <li>All local customer data (documents, expenses, vehicles, etc.) is preserved safely.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <label className="block text-slate-300 font-medium">
+                To confirm deactivation, type <span className="font-mono text-rose-400 font-bold">DELETE</span> below:
+              </label>
+              <Input
+                type="text"
+                placeholder="DELETE"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                className="bg-slate-950 border-slate-800 text-white font-mono text-xs"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDeactivatingCustomer(null);
+                  setConfirmText("");
+                }}
+                className="text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleDeactivate}
+                disabled={confirmText !== "DELETE" || isProcessingAction}
+                className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs gap-1.5"
+              >
+                {isProcessingAction ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deactivating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Deactivate Customer</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>

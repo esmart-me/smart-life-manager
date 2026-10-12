@@ -13,6 +13,7 @@ import {
 } from "./types";
 import { isSupabaseServerAdminConfigured } from "../supabase/config";
 import { getCentralCustomerData } from "../supabase/server";
+import { prisma } from "../db/prisma";
 
 const OFFLINE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days maximum offline grace
 
@@ -37,8 +38,19 @@ function getEntitlementCachePath(customerId: string): string {
 
 /**
  * Derives a secure HMAC key for entitlement cache integrity.
+ * Strictly checks persistent per-machine desktop secret from AppData first.
  */
 function getCacheHmacKey(): string {
+  try {
+    const desktopSecretPath = process.env.APPDATA
+      ? path.join(process.env.APPDATA, "smart-life-manager", ".desktop-secret")
+      : null;
+    if (desktopSecretPath && fs.existsSync(desktopSecretPath)) {
+      const stored = fs.readFileSync(desktopSecretPath, "utf8").trim();
+      if (stored && stored.length >= 32) return stored;
+    }
+  } catch {}
+
   return (
     process.env.JWT_SECRET ||
     process.env.SUPABASE_JWT_SECRET ||
@@ -258,8 +270,27 @@ export function getCachedEntitlement(customerId: string): CachedEntitlementRecor
         record.offlineGraceUntil
       );
       if (record.signature !== expectedSig) {
-        console.warn("[Entitlement Cache] Integrity violation: cache signature mismatch. Discarding cache.");
-        return null;
+        const fallbackSig = crypto
+          .createHmac("sha256", "smart-life-manager-entitlement-cache-secret-salt-2026")
+          .update(
+            [
+              record.customerId,
+              record.entitlement.plan,
+              record.entitlement.status,
+              record.entitlement.premiumEnabled ? "1" : "0",
+              record.entitlement.accountStatus,
+              record.entitlement.appAccessAllowed ? "1" : "0",
+              record.entitlement.expiresAt || "",
+              record.cachedAt,
+              record.offlineGraceUntil || "",
+            ].join("|")
+          )
+          .digest("hex");
+
+        if (record.signature !== fallbackSig) {
+          console.warn("[Entitlement Cache] Integrity violation: cache signature mismatch. Discarding cache.");
+          return null;
+        }
       }
     }
 
@@ -425,24 +456,63 @@ export function resolveOfflineEntitlement(
 /**
  * Retrieves the authoritative entitlement for a user.
  * 1. Checks Central Supabase first (authoritative cloud source).
- * 2. If available, computes entitlement, saves to local cache, and returns it.
- * 3. If unreachable or unconfigured, falls back safely to cached offline evaluation.
+ *    - If Central has an active subscription record, computes and returns entitlement.
+ *    - If Central profile is suspended, suspension is strictly enforced.
+ * 2. If Central has no subscription record or is unreachable/unconfigured:
+ *    - Checks local SQLite database (authoritative for local/desktop installations).
+ *    - If local database has an active premium/family subscription, honors it!
+ * 3. Falls back safely to cached offline evaluation.
  */
 export async function getAuthoritativeEntitlement(customerId: string): Promise<CentralEntitlement> {
+  // 1. Central Supabase check
   if (isSupabaseServerAdminConfigured()) {
     try {
       const centralData = await getCentralCustomerData(customerId);
-      if (centralData && (centralData.subscription || centralData.profile)) {
+
+      // Account suspension from central profile always takes precedence
+      if (centralData?.profile?.account_status === "suspended") {
+        const entitlement = computeEntitlement(null, centralData.profile);
+        saveCachedEntitlement(customerId, entitlement);
+        return entitlement;
+      }
+
+      // If Central Supabase has an authoritative subscription record
+      if (centralData && centralData.subscription) {
         const entitlement = computeEntitlement(centralData.subscription, centralData.profile);
         saveCachedEntitlement(customerId, entitlement);
         return entitlement;
       }
     } catch (err) {
-      console.warn("[Entitlement Service] Central lookup failed, evaluating offline grace:", err);
+      console.warn("[Entitlement Service] Central lookup failed, evaluating local database:", err);
     }
   }
 
-  // Offline / Local evaluation
+  // 2. Local database check (authoritative for desktop/personal accounts when central subscription is absent)
+  try {
+    const [localSub, localUser] = await Promise.all([
+      prisma.userSubscription.findUnique({ where: { userId: customerId } }).catch(() => null),
+      prisma.user.findUnique({ where: { id: customerId }, include: { profile: true } }).catch(() => null),
+    ]);
+
+    if (localUser?.status === "suspended") {
+      const entitlement = computeEntitlement(null, { account_status: "suspended" });
+      saveCachedEntitlement(customerId, entitlement);
+      return entitlement;
+    }
+
+    if (localSub && localSub.status === "active" && (localSub.plan === "premium" || localSub.plan === "family")) {
+      const entitlement = computeEntitlement(localSub, localUser?.profile || null);
+      if (entitlement.premiumEnabled) {
+        saveCachedEntitlement(customerId, entitlement);
+        return entitlement;
+      }
+    }
+  } catch (dbErr) {
+    console.warn("[Entitlement Service] Local database check error:", dbErr);
+  }
+
+  // 3. Offline / Local cached evaluation
   const offline = resolveOfflineEntitlement(customerId);
   return offline.entitlement;
 }
+

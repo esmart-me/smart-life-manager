@@ -24,16 +24,18 @@ export default async function AdminCustomersPage() {
     },
   });
 
-  // Query central device telemetry if Supabase is configured
+  // Query central device telemetry if Supabase is configured (with 1.5s max network timeout)
   const deviceCountsMap = new Map<string, number>();
   const appVersionMap = new Map<string, string>();
   if (isSupabaseServerAdminConfigured()) {
     try {
       const client = createServerAdminSupabaseClient();
       if (client) {
-        const { data: devices } = await client
-          .from("devices")
-          .select("customer_id, app_version");
+        const timeoutPromise = new Promise<{ data: any }>((resolve) =>
+          setTimeout(() => resolve({ data: null }), 1500)
+        );
+        const fetchPromise = client.from("devices").select("customer_id, app_version");
+        const { data: devices } = await Promise.race([fetchPromise, timeoutPromise]);
         if (devices) {
           for (const d of devices) {
             const count = deviceCountsMap.get(d.customer_id) || 0;

@@ -106,43 +106,27 @@ export function SandboxCheckoutClient() {
       setErrorMessage(null);
 
       if (status === "succeeded") {
-        const webhookPayload = {
-          type: "checkout.session.completed",
-          data: {
-            object: {
-              id: sessionId,
-              client_reference_id: userId,
-              amount_total: Math.round(amount * 100),
-              currency: currency.toLowerCase(),
-              customer: `cus_test_${userId.slice(-6)}`,
-              subscription: `sub_stripe_${Date.now()}`,
-              payment_intent: `pi_test_${Date.now()}`,
-              metadata: {
-                userId,
-                plan,
-                planName,
-                billingInterval: interval,
-                amount: amount.toString(),
-                currency,
-              },
-            },
-          },
-        };
-
-        const res = await fetch("/api/webhooks/stripe", {
+        const res = await fetch("/api/checkout/sandbox-activate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-stripe-test-secret": "sandbox_test_token",
           },
-          body: JSON.stringify(webhookPayload),
+          body: JSON.stringify({
+            sessionId,
+            userId,
+            plan,
+            planName,
+            billingInterval: interval,
+            amount,
+            currency,
+          }),
         });
 
         const data = await res.json();
-        if (data.received) {
+        if (data.success || data.received) {
           router.push(`/pricing?payment=success&session_id=${sessionId}&plan=${plan}`);
         } else {
-          setErrorMessage(data.error?.message || "Webhook processing did not succeed.");
+          setErrorMessage(data.error?.message || "Activation did not succeed.");
           setIsProcessing(false);
         }
       } else {

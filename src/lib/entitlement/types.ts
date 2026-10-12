@@ -3,7 +3,7 @@
 
 export type PlanType = "basic" | "premium";
 export type SubscriptionStatusType = "active" | "expired" | "canceled" | "suspended" | "trial";
-export type AccountStatusType = "active" | "suspended" | "pending";
+export type AccountStatusType = "active" | "suspended" | "pending" | "archived";
 export type ConnectionStateType = "ONLINE_VERIFIED" | "ONLINE_UNVERIFIED" | "OFFLINE";
 
 export interface CentralEntitlement {

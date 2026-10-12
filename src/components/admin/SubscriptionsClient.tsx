@@ -48,6 +48,8 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
   const [selectedSub, setSelectedSub] = useState<SubscriptionDTO | null>(null);
   const [overridePlan, setOverridePlan] = useState("premium");
   const [overrideStatus, setOverrideStatus] = useState("active");
+  const [overrideDuration, setOverrideDuration] = useState("30");
+  const [overrideCustomDate, setOverrideCustomDate] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -72,6 +74,8 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
     setSelectedSub(sub);
     setOverridePlan(sub.plan);
     setOverrideStatus(sub.status);
+    setOverrideDuration("30");
+    setOverrideCustomDate(sub.currentPeriodEnd ? sub.currentPeriodEnd.slice(0, 10) : "");
     setOverrideReason("");
     setModalError(null);
   };
@@ -89,6 +93,23 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
       setIsSubmitting(true);
       setModalError(null);
 
+      let durationDays: number | undefined = undefined;
+      let expiryDate: string | undefined = undefined;
+      let continuous: boolean | undefined = undefined;
+
+      if (overrideDuration === "custom") {
+        if (!overrideCustomDate) {
+          setModalError("Please specify a valid expiration date.");
+          setIsSubmitting(false);
+          return;
+        }
+        expiryDate = new Date(overrideCustomDate).toISOString();
+      } else if (overrideDuration === "continuous") {
+        continuous = true;
+      } else {
+        durationDays = parseInt(overrideDuration, 10) || 30;
+      }
+
       const res = await fetch("/api/admin/subscriptions/override", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,6 +117,9 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
           userId: selectedSub.userId,
           plan: overridePlan,
           status: overrideStatus,
+          durationDays,
+          expiryDate,
+          continuous,
           reason: overrideReason.trim(),
         }),
       });
@@ -105,11 +129,18 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
         throw new Error(data.error?.message || "Failed to override subscription.");
       }
 
+      const updatedEnd = data.data?.subscription?.currentPeriodEnd || null;
+
       // Update state locally
       setSubscriptions((prev) =>
         prev.map((s) =>
           s.id === selectedSub.id
-            ? { ...s, plan: overridePlan, status: overrideStatus }
+            ? {
+                ...s,
+                plan: overridePlan,
+                status: overrideStatus,
+                currentPeriodEnd: updatedEnd,
+              }
             : s
         )
       );
@@ -351,6 +382,39 @@ export function SubscriptionsClient({ initialSubscriptions }: SubscriptionsClien
                   <option value="failed">Payment Failed</option>
                 </select>
               </div>
+
+              {overridePlan !== "free" && overrideStatus === "active" && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Entitlement Duration
+                  </label>
+                  <select
+                    value={overrideDuration}
+                    onChange={(e) => setOverrideDuration(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-800 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="30">30 Days (1 Month)</option>
+                    <option value="90">90 Days (3 Months)</option>
+                    <option value="365">365 Days (1 Year)</option>
+                    <option value="continuous">Continuous (Lifetime / No Expiry)</option>
+                    <option value="custom">Custom Expiration Date...</option>
+                  </select>
+
+                  {overrideDuration === "custom" && (
+                    <div className="mt-2">
+                      <label className="block text-[11px] text-slate-400 mb-1">
+                        Select End Date
+                      </label>
+                      <Input
+                        type="date"
+                        value={overrideCustomDate}
+                        onChange={(e) => setOverrideCustomDate(e.target.value)}
+                        className="bg-slate-950 border-slate-800 text-white text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
