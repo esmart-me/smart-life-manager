@@ -237,18 +237,18 @@ export function ReminderFormModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 my-8 overflow-hidden">
+      <div className="relative w-full max-w-xl glass-elevated rounded-2xl shadow-2xl border border-theme-border my-8 overflow-hidden animate-modal-pop">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-theme-border glass-panel">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 rounded-lg">
+            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/20">
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              <h2 className="text-base font-bold text-theme-text-primary">
                 {isEditing ? "Edit Reminder" : "New Reminder"}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-theme-text-muted">
                 Never forget payments, service dates, birthdays, or meetings.
               </p>
             </div>

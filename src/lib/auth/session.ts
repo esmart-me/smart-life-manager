@@ -6,9 +6,18 @@ import { APP_CONFIG } from "@/lib/constants";
 import { AuthTokenPayload, SessionUser, UserRole } from "@/types";
 import { prisma } from "@/lib/db/prisma";
 
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || "smart-life-manager-production-fallback-key-2026-32chars"
-);
+function getSecretKey(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.trim().length < 32) {
+    throw new Error(
+      "[SECURITY] JWT_SECRET environment variable is missing or too short. " +
+      "Set a secure random string of at least 32 characters in your .env file."
+    );
+  }
+  return new TextEncoder().encode(secret.trim());
+}
+
+const SECRET_KEY = getSecretKey();
 
 /**
  * Creates an encrypted/signed JWT session token
@@ -52,17 +61,18 @@ export async function verifySessionToken(
 /**
  * Sets the secure session cookie in the HTTP response
  */
-export async function setSessionCookie(token: string): Promise<void> {
+export async function setSessionCookie(token: string, rememberMe: boolean = true): Promise<void> {
   const cookieStore = await cookies();
-  const expires = new Date(Date.now() + APP_CONFIG.sessionMaxAge * 1000);
+  const maxAge = rememberMe ? APP_CONFIG.sessionMaxAge : undefined;
+  const expires = rememberMe ? new Date(Date.now() + APP_CONFIG.sessionMaxAge * 1000) : undefined;
   const isHttps = process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ?? false;
   cookieStore.set(APP_CONFIG.cookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production" && isHttps,
     sameSite: "lax",
     path: "/",
-    maxAge: APP_CONFIG.sessionMaxAge,
-    expires,
+    ...(maxAge ? { maxAge } : {}),
+    ...(expires ? { expires } : {}),
   });
 }
 
@@ -250,6 +260,12 @@ export const getAdminUser = cache(async (): Promise<SessionUser | null> => {
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) {
+    try {
+      await clearSessionCookie();
+    } catch {
+      // In Server Components, cookies cannot be mutated directly during GET rendering;
+      // middleware and login page route clean up any stale cookies safely.
+    }
     redirect("/login");
   }
   return user;

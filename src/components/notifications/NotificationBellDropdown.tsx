@@ -275,10 +275,10 @@ export function NotificationBellDropdown() {
         aria-label="View notifications"
         aria-expanded={isOpen}
         title="Notifications"
-        className={`relative p-2 rounded-lg transition-all duration-200 ${
+        className={`relative p-2 rounded-xl transition-all duration-200 active:scale-95 ${
           isOpen
-            ? "bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400"
-            : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+            ? "bg-theme-accent-subtle text-theme-accent"
+            : "text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-glass-subtle"
         } ${
           criticalCount > 0
             ? "ring-2 ring-rose-500/60 shadow-[0_0_12px_rgba(244,63,94,0.35)]"
@@ -293,7 +293,7 @@ export function NotificationBellDropdown() {
             className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white shadow-xs ${
               criticalCount > 0
                 ? "bg-rose-600 animate-pulse ring-2 ring-white dark:ring-slate-900"
-                : "bg-brand-600 ring-2 ring-white dark:ring-slate-900"
+                : "btn-theme-accent ring-2 ring-white dark:ring-slate-900"
             }`}
           >
             {unreadCount > 99 ? "99+" : unreadCount}
@@ -303,15 +303,15 @@ export function NotificationBellDropdown() {
 
       {/* Notification Dropdown Panel */}
       {isOpen && (
-        <div className="fixed sm:absolute inset-x-3 sm:inset-x-auto top-18 sm:top-full sm:right-0 sm:mt-2 sm:w-96 max-h-[85vh] sm:max-h-[560px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed sm:absolute inset-x-3 sm:inset-x-auto top-18 sm:top-full sm:right-0 sm:mt-2 sm:w-96 max-h-[85vh] sm:max-h-[560px] glass-elevated border border-theme-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-dropdown-slide">
           {/* Header */}
-          <div className="p-3.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-slate-900/90 backdrop-blur-xs">
+          <div className="p-3.5 border-b border-theme-border flex items-center justify-between glass-panel">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-slate-900 dark:text-white">
+              <span className="font-semibold text-sm text-theme-text-primary">
                 Notifications
               </span>
               {unreadCount > 0 && (
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/80 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800">
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-theme-accent-subtle text-theme-accent border border-theme-accent/25">
                   {unreadCount} unread
                 </span>
               )}
@@ -322,7 +322,7 @@ export function NotificationBellDropdown() {
                 type="button"
                 onClick={() => fetchNotifications(false)}
                 title="Refresh notifications"
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-md hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 text-theme-text-muted hover:text-theme-text-primary rounded-md hover:bg-theme-glass-subtle transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
               </button>
@@ -333,7 +333,7 @@ export function NotificationBellDropdown() {
                   onClick={handleMarkAllRead}
                   disabled={isMarkingAll}
                   title="Mark all as read"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-theme-accent hover:underline px-2 py-1 rounded hover:bg-theme-glass-subtle transition-colors"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   <span>Mark all read</span>
@@ -344,7 +344,7 @@ export function NotificationBellDropdown() {
                 href="/settings#notifications"
                 onClick={() => setIsOpen(false)}
                 title="Notification Settings"
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-md hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 text-theme-text-muted hover:text-theme-text-primary rounded-md hover:bg-theme-glass-subtle transition-colors"
               >
                 <Settings className="w-3.5 h-3.5" />
               </Link>
@@ -352,14 +352,14 @@ export function NotificationBellDropdown() {
           </div>
 
           {/* Filter Tabs */}
-          <div className="grid grid-cols-3 px-3 py-2 border-b border-slate-100 dark:border-slate-800 text-xs font-medium gap-1 bg-slate-50/40 dark:bg-slate-900/50">
+          <div className="grid grid-cols-3 px-3 py-2 border-b border-theme-border text-xs font-medium gap-1 glass-subtle">
             <button
               type="button"
               onClick={() => setActiveTab("all")}
-              className={`py-1 rounded-md transition-colors text-center ${
+              className={`py-1 rounded-lg transition-colors text-center ${
                 activeTab === "all"
-                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold shadow-xs"
-                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  ? "bg-theme-accent-subtle text-theme-accent font-semibold shadow-2xs border border-theme-accent/30"
+                  : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
             >
               All ({notifications.length})
@@ -367,15 +367,15 @@ export function NotificationBellDropdown() {
             <button
               type="button"
               onClick={() => setActiveTab("unread")}
-              className={`py-1 rounded-md transition-colors text-center flex items-center justify-center gap-1 ${
+              className={`py-1 rounded-lg transition-colors text-center flex items-center justify-center gap-1 ${
                 activeTab === "unread"
-                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold shadow-xs"
-                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  ? "bg-theme-accent-subtle text-theme-accent font-semibold shadow-2xs border border-theme-accent/30"
+                  : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
             >
               <span>Unread</span>
               {unreadCount > 0 && (
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-theme-accent" />
               )}
             </button>
             <button
@@ -383,7 +383,7 @@ export function NotificationBellDropdown() {
               onClick={() => setActiveTab("critical")}
               className={`py-1 rounded-md transition-colors text-center flex items-center justify-center gap-1 ${
                 activeTab === "critical"
-                  ? "bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 font-semibold shadow-xs"
+                  ? "glass-card text-rose-600 dark:text-rose-400 font-semibold shadow-xs border border-rose-200/60 dark:border-rose-900/30"
                   : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               }`}
             >

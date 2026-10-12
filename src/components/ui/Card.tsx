@@ -1,15 +1,21 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  hover?: boolean;
+}
+
 export function Card({
   className,
   children,
+  hover = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: CardProps) {
   return (
     <div
       className={cn(
-        "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl shadow-xs transition-shadow",
+        "glass-card rounded-2xl transition-all duration-200",
+        hover && "glass-card-hover",
         className
       )}
       {...props}
@@ -25,7 +31,13 @@ export function CardHeader({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("px-5 py-4 border-b border-slate-100 dark:border-slate-800/60", className)} {...props}>
+    <div
+      className={cn(
+        "px-5 py-4 border-b border-slate-200/60 dark:border-white/[0.06]",
+        className
+      )}
+      {...props}
+    >
       {children}
     </div>
   );
@@ -38,7 +50,10 @@ export function CardTitle({
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={cn("text-base font-semibold text-slate-900 dark:text-slate-100 tracking-tight", className)}
+      className={cn(
+        "text-base font-semibold text-slate-900 dark:text-white tracking-tight",
+        className
+      )}
       {...props}
     >
       {children}
@@ -52,7 +67,13 @@ export function CardDescription({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn("text-xs text-slate-500 dark:text-slate-400 mt-1", className)} {...props}>
+    <p
+      className={cn(
+        "text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed",
+        className
+      )}
+      {...props}
+    >
       {children}
     </p>
   );
@@ -78,7 +99,7 @@ export function CardFooter({
   return (
     <div
       className={cn(
-        "px-5 py-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 rounded-b-xl",
+        "px-5 py-3 border-t border-slate-200/60 dark:border-white/[0.06] bg-slate-50/40 dark:bg-white/[0.02] rounded-b-2xl",
         className
       )}
       {...props}

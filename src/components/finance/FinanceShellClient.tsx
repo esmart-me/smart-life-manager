@@ -3,21 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { PieChart, CreditCard, Receipt, Plus, Settings, RefreshCw, CheckCircle2 } from "lucide-react";
+import { PieChart, CreditCard, Receipt, Plus, Settings, RefreshCw, CheckCircle2, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BudgetStatusInfo } from "@/lib/finance/calculations";
 import { BudgetOverviewTab } from "./BudgetOverviewTab";
 import { PaymentListTab, PaymentItem } from "./PaymentListTab";
 import { ExpenseListTab, ExpenseItem } from "./ExpenseListTab";
+import { CreditCardsTab, CreditCardWithEmis } from "./CreditCardsTab";
+import { InvestmentsTab, InvestmentItem } from "./InvestmentsTab";
 import { PaymentFormModal, PaymentFormData } from "./PaymentFormModal";
 import { ExpenseFormModal, ExpenseFormData } from "./ExpenseFormModal";
 import { BudgetConfigModal } from "./BudgetConfigModal";
 
-type ActiveTab = "overview" | "payments" | "expenses";
+type ActiveTab = "overview" | "payments" | "credit-cards" | "investments" | "expenses";
 
 interface FinanceShellClientProps {
   initialPayments: PaymentItem[];
   initialExpenses: ExpenseItem[];
+  initialCreditCards?: CreditCardWithEmis[];
+  initialInvestments?: InvestmentItem[];
   initialBudgets: Array<{ category: string; limitAmount: number; currency: string }>;
   initialAnalytics: BudgetStatusInfo;
   userCurrency: string;
@@ -27,6 +31,8 @@ interface FinanceShellClientProps {
 export function FinanceShellClient({
   initialPayments,
   initialExpenses,
+  initialCreditCards = [],
+  initialInvestments = [],
   initialBudgets,
   initialAnalytics,
   userCurrency,
@@ -123,11 +129,11 @@ export function FinanceShellClient({
       </div>
 
       {/* Main Tabs Navigation */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
+      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-5 overflow-x-auto scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveTab("overview")}
-          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 transition-colors ${
             activeTab === "overview"
               ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -140,20 +146,46 @@ export function FinanceShellClient({
         <button
           type="button"
           onClick={() => setActiveTab("payments")}
-          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 transition-colors ${
             activeTab === "payments"
               ? "border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           <CreditCard className="w-4 h-4" />
-          <span>Bills & Payments ({initialPayments.filter((p) => !p.isPaid).length} due)</span>
+          <span>Bills & Payments ({initialPayments.filter((p) => !p.isPaid).length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("credit-cards")}
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 transition-colors ${
+            activeTab === "credit-cards"
+              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span>Credit Cards & EMI ({initialCreditCards.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("investments")}
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 transition-colors ${
+            activeTab === "investments"
+              ? "border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>Investments & SIP ({initialInvestments.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("expenses")}
-          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 transition-colors ${
             activeTab === "expenses"
               ? "border-sky-600 text-sky-600 dark:border-sky-400 dark:text-sky-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -165,7 +197,7 @@ export function FinanceShellClient({
 
         <Link
           href="/subscriptions"
-          className="pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 border-transparent text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors"
+          className="pb-3 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Subscriptions Vault</span>
@@ -188,6 +220,22 @@ export function FinanceShellClient({
           userCurrency={userCurrency}
           onAddPayment={handleOpenAddPayment}
           onEditPayment={handleOpenEditPayment}
+          onRefresh={handleRefresh}
+        />
+      )}
+
+      {activeTab === "credit-cards" && (
+        <CreditCardsTab
+          cards={initialCreditCards}
+          userCurrency={userCurrency}
+          onRefresh={handleRefresh}
+        />
+      )}
+
+      {activeTab === "investments" && (
+        <InvestmentsTab
+          investments={initialInvestments}
+          userCurrency={userCurrency}
           onRefresh={handleRefresh}
         />
       )}

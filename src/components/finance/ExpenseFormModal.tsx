@@ -195,19 +195,19 @@ export function ExpenseFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-lg glass-elevated border border-theme-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-modal-pop">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-theme-border glass-panel">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-theme-accent-subtle text-theme-accent border border-theme-accent/20 flex items-center justify-center">
               <Receipt className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+              <h2 className="text-base font-semibold text-theme-text-primary">
                 {isEditing ? "Edit Expense" : "Log New Expense"}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-theme-text-muted">
                 Track your real daily and monthly expenditure with optional receipts.
               </p>
             </div>
@@ -215,7 +215,7 @@ export function ExpenseFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-lg text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-glass-subtle transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

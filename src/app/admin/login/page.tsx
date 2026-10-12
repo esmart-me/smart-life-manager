@@ -74,9 +74,13 @@ function AdminLoginForm() {
   const handleClearSession = async () => {
     setIsClearingSession(true);
     try {
+      if (typeof window !== "undefined" && (window as any).desktopAPI?.clearPersistedSession) {
+        await (window as any).desktopAPI.clearPersistedSession();
+      }
       await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/admin/login";
     } catch {
+      // Ignored
+    } finally {
       window.location.href = "/admin/login";
     }
   };
@@ -108,7 +112,7 @@ function AdminLoginForm() {
     <div className="relative w-full max-w-md space-y-6">
       {/* Header Branding */}
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 mb-2 shadow-lg shadow-indigo-950/50">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-theme-accent-subtle border border-theme-accent/30 text-theme-accent mb-2 shadow-theme-glow">
           <ShieldAlert className="w-7 h-7" />
         </div>
         <h1 className="text-2xl font-black tracking-tight text-white">
@@ -120,7 +124,7 @@ function AdminLoginForm() {
       </div>
 
       {/* Card */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-5 backdrop-blur-md">
+      <div className="glass-elevated border border-white/10 rounded-3xl shadow-glass-lg p-6 sm:p-8 space-y-5 bg-charcoal-900/85 backdrop-blur-2xl">
         {errorMessage && (
           <div className="space-y-3">
             <AlertBanner
@@ -133,7 +137,7 @@ function AdminLoginForm() {
                 type="button"
                 onClick={handleClearSession}
                 disabled={isClearingSession}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:text-white transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-charcoal-800 hover:bg-charcoal-750 border border-white/10 text-xs text-slate-300 hover:text-white transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5 text-rose-400" />
                 <span>
@@ -150,7 +154,7 @@ function AdminLoginForm() {
         <div>
           <a
             href="/api/auth/google?returnTo=/admin"
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border border-slate-700/80 bg-slate-950/80 hover:bg-slate-800 text-slate-200 text-xs font-semibold shadow-xs transition-colors"
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border border-white/10 glass-panel hover:bg-white/[0.06] text-slate-200 text-xs font-semibold shadow-xs transition-colors"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path
@@ -176,9 +180,9 @@ function AdminLoginForm() {
 
         <div className="relative flex items-center justify-center my-2">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-800" />
+            <div className="w-full border-t border-white/10" />
           </div>
-          <span className="relative px-3 bg-slate-900 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+          <span className="relative px-3 bg-charcoal-900 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
             Or Master Password
           </span>
         </div>
@@ -196,7 +200,7 @@ function AdminLoginForm() {
                 placeholder="admin@smartlifemanager.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-9 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus:border-indigo-500 focus:ring-indigo-500/20"
+                className="pl-9 bg-charcoal-950/80 border-white/10 text-white placeholder:text-slate-600 focus:border-theme-accent focus:ring-theme-accent/25"
               />
             </div>
           </div>
@@ -212,7 +216,7 @@ function AdminLoginForm() {
                   setForgotEmail(email);
                   setShowForgotModal(true);
                 }}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline"
+                className="text-[11px] text-theme-accent hover:underline"
               >
                 Forgot master password?
               </button>
@@ -225,7 +229,7 @@ function AdminLoginForm() {
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-9 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus:border-indigo-500 focus:ring-indigo-500/20"
+                className="pl-9 bg-charcoal-950/80 border-white/10 text-white placeholder:text-slate-600 focus:border-theme-accent focus:ring-theme-accent/25"
               />
             </div>
           </div>
@@ -235,7 +239,7 @@ function AdminLoginForm() {
               type="submit"
               variant="primary"
               isLoading={isLoading}
-              className="w-full justify-center bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 font-semibold text-xs tracking-wide shadow-lg shadow-indigo-600/30"
+              className="w-full justify-center text-white font-bold py-2.5 text-xs tracking-wide shadow-theme-glow btn-theme-accent"
             >
               <span>Authenticate Admin Session</span>
               <ArrowRight className="w-4 h-4 ml-1.5" />
@@ -321,7 +325,7 @@ function AdminLoginForm() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowForgotModal(false)}
-                    className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
+                    className="border-white/10 text-slate-300 hover:bg-charcoal-800 text-xs"
                   >
                     Cancel
                   </Button>
@@ -330,7 +334,7 @@ function AdminLoginForm() {
                     size="sm"
                     variant="primary"
                     isLoading={isForgotLoading}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs"
+                    className="btn-theme-accent text-white font-bold text-xs"
                   >
                     Initiate Recovery
                   </Button>
@@ -346,9 +350,9 @@ function AdminLoginForm() {
 
 export default function AdminLoginPage() {
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4">
+    <div className="min-h-screen bg-[#080C0E] flex flex-col justify-center items-center p-4 relative">
       {/* Background radial glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-950/40 via-slate-950 to-slate-950 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(197,160,89,0.08),rgba(255,255,255,0)),radial-gradient(ellipse_60%_60%_at_100%_100%,rgba(6,59,46,0.1),rgba(255,255,255,0))] pointer-events-none" />
       <Suspense
         fallback={
           <div className="text-center text-slate-500 text-xs animate-pulse">

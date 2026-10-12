@@ -74,6 +74,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
       nextServiceMileage,
       insuranceExpiry,
       registrationExpiry,
+      pucNumber,
+      pucIssueDate,
+      pucExpiryDate,
+      pucNotes,
       nextServiceDate,
       notes,
     } = body;
@@ -109,6 +113,18 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
     if (registrationExpiry !== undefined) {
       dataToUpdate.registrationExpiry = registrationExpiry ? new Date(registrationExpiry) : null;
+    }
+    if (pucNumber !== undefined) {
+      dataToUpdate.pucNumber = pucNumber ? String(pucNumber).trim() : null;
+    }
+    if (pucIssueDate !== undefined) {
+      dataToUpdate.pucIssueDate = pucIssueDate ? new Date(pucIssueDate) : null;
+    }
+    if (pucExpiryDate !== undefined) {
+      dataToUpdate.pucExpiryDate = pucExpiryDate ? new Date(pucExpiryDate) : null;
+    }
+    if (pucNotes !== undefined) {
+      dataToUpdate.pucNotes = pucNotes ? String(pucNotes).trim() : null;
     }
     if (nextServiceDate !== undefined) {
       dataToUpdate.nextServiceDate = nextServiceDate ? new Date(nextServiceDate) : null;

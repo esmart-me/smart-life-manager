@@ -228,23 +228,23 @@ export function FloatingAiAssistant() {
           }
         `}
       >
-        <div className="flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xl rounded-t-3xl md:rounded-2xl overflow-hidden">
+        <div className="flex flex-col h-full glass-elevated border border-slate-200/90 dark:border-white/10 shadow-2xl rounded-t-3xl md:rounded-2xl overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white border-b border-slate-800 shrink-0">
+          <div className="flex items-center justify-between px-4 py-3.5 glass-panel text-theme-text-primary border-b border-theme-border shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 shadow-md shadow-brand-500/30">
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-xl btn-theme-accent border border-white/20 shadow-theme-glow">
                 <Sparkles className="w-4 h-4 text-white" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-slate-900" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-theme-accent border-2 border-theme-bg" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-sm tracking-tight text-white">Smart Life AI</span>
-                  <span className="text-[10px] font-medium text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-1.5 py-0.2 rounded-full">
-                    Ready
+                  <span className="font-semibold text-sm tracking-tight text-theme-text-primary">Smart Life AI</span>
+                  <span className="text-[10px] font-semibold text-theme-accent bg-theme-accent-subtle border border-theme-accent/30 px-2 py-0.2 rounded-full">
+                    Online
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-300/80 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-brand-400" />
+                <p className="text-[11px] text-theme-text-muted flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-theme-accent" />
                   Private Account Data • Read-Only
                 </p>
               </div>
@@ -257,7 +257,7 @@ export function FloatingAiAssistant() {
                   onClick={handleResetChat}
                   title="Start fresh conversation"
                   aria-label="Start fresh conversation"
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                  className="p-1.5 text-theme-text-muted hover:text-theme-accent hover:bg-theme-glass-subtle rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-accent"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -267,7 +267,7 @@ export function FloatingAiAssistant() {
                 onClick={() => setIsOpen(false)}
                 title="Close AI Assistant (Esc)"
                 aria-label="Close AI Assistant"
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                className="p-1.5 text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-glass-subtle rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-accent"
               >
                 <ChevronDown className="w-4 h-4 md:hidden" />
                 <X className="w-4 h-4 hidden md:block" />
@@ -276,31 +276,31 @@ export function FloatingAiAssistant() {
           </div>
 
           {/* Messages & Content Area */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 text-sm bg-slate-50/50 dark:bg-slate-950/40">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 text-sm bg-theme-bg/60">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-4 space-y-4 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-500/20 to-indigo-500/20 dark:from-brand-500/10 dark:to-indigo-500/10 flex items-center justify-center text-brand-600 dark:text-brand-400 border border-brand-200/50 dark:border-brand-900/40 shadow-inner">
+                <div className="w-12 h-12 rounded-2xl bg-theme-accent-subtle text-theme-accent border border-theme-accent/30 flex items-center justify-center shadow-inner">
                   <Bot className="w-6 h-6" />
                 </div>
 
                 <div className="space-y-1 max-w-xs">
-                  <h3 className="font-semibold text-base text-slate-900 dark:text-slate-100">
+                  <h3 className="font-semibold text-base text-theme-text-primary">
                     Hi! I’m your Smart Life Assistant 👋
                   </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  <p className="text-xs text-theme-text-secondary leading-relaxed">
                     I can help you find and summarize information from your Smart Life Manager.
                   </p>
                 </div>
 
                 {/* Data Trust Indicator */}
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] text-theme-text-secondary glass-subtle border border-theme-border shadow-2xs">
+                  <ShieldCheck className="w-3.5 h-3.5 text-theme-accent" />
                   <span>Using your private account data (Read-Only)</span>
                 </div>
 
                 {/* Quick Action Suggestion Chips */}
                 <div className="w-full pt-2">
-                  <p className="text-[11px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase mb-2 text-left px-1">
+                  <p className="text-[11px] font-semibold tracking-wider text-theme-text-muted uppercase mb-2 text-left px-1">
                     Quick Suggestions
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
@@ -311,7 +311,7 @@ export function FloatingAiAssistant() {
                           key={item.label}
                           type="button"
                           onClick={() => handleSendMessage(item.query)}
-                          className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${item.color}`}
+                          className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-accent ${item.color}`}
                         >
                           <Icon className="w-3.5 h-3.5 shrink-0" />
                           <span className="truncate">{item.label}</span>
@@ -333,8 +333,8 @@ export function FloatingAiAssistant() {
                     <div
                       className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-2xs ${
                         m.role === "user"
-                          ? "bg-brand-600 text-white rounded-br-xs"
-                          : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-xs border border-slate-200/80 dark:border-slate-700/80"
+                          ? "btn-theme-accent text-white rounded-br-xs border border-white/20 shadow-theme-glow"
+                          : "glass-card text-slate-800 dark:text-slate-100 rounded-bl-xs border border-slate-200/80 dark:border-white/10"
                       }`}
                     >
                       {m.role === "user" ? (
@@ -354,15 +354,15 @@ export function FloatingAiAssistant() {
                 {/* Thinking / Loading State */}
                 {isGenerating && (
                   <div className="flex flex-col items-start">
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/80 rounded-2xl rounded-bl-xs px-4 py-3 shadow-2xs">
-                      <Sparkles className="w-4 h-4 text-brand-500 animate-spin motion-reduce:animate-none" />
+                    <div className="flex items-center gap-2 glass-card text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/10 rounded-2xl rounded-bl-xs px-4 py-3 shadow-2xs">
+                      <Sparkles className="w-4 h-4 text-gold-500 animate-spin motion-reduce:animate-none" />
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
                         Thinking
                       </span>
                       <span className="inline-flex gap-1 items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce motion-reduce:animate-none [animation-delay:-0.3s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce motion-reduce:animate-none [animation-delay:-0.15s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce motion-reduce:animate-none" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-bounce motion-reduce:animate-none [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-bounce motion-reduce:animate-none [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-bounce motion-reduce:animate-none" />
                       </span>
                     </div>
                   </div>
@@ -388,13 +388,13 @@ export function FloatingAiAssistant() {
           </div>
 
           {/* Footer Input */}
-          <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
+          <div className="p-3 glass-panel border-t border-slate-200/80 dark:border-white/10 shrink-0">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700 focus-within:border-brand-500 dark:focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all"
+              className="flex items-center gap-2 glass-input rounded-2xl p-1.5 focus-within:border-theme-accent focus-within:ring-2 focus-within:ring-theme-accent/20 transition-all"
             >
               <textarea
                 ref={textareaRef}
@@ -412,7 +412,7 @@ export function FloatingAiAssistant() {
                 disabled={!input.trim() || isGenerating}
                 title="Send message (Enter)"
                 aria-label="Send message"
-                className="p-2 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white disabled:opacity-30 disabled:pointer-events-none hover:shadow-md hover:shadow-brand-500/25 active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                className="p-2 rounded-xl btn-theme-accent text-white disabled:opacity-30 disabled:pointer-events-none hover:shadow-theme-glow active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-accent"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -446,27 +446,27 @@ export function FloatingAiAssistant() {
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-label={isOpen ? "Close AI Assistant" : "Open Smart Life AI Assistant"}
-          className="group relative flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 text-white font-medium text-xs sm:text-sm shadow-xl shadow-brand-500/30 hover:shadow-brand-500/50 hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/50 cursor-pointer select-none"
+          className="group relative flex items-center gap-2.5 px-4.5 py-3 rounded-full btn-theme-accent text-white font-medium text-xs sm:text-sm border border-white/20 shadow-xl shadow-theme-glow hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/30 cursor-pointer select-none"
         >
           {/* Subtle Ambient Pulse Ring (Respects reduced motion) */}
           <span
             aria-hidden="true"
-            className="absolute -inset-1 rounded-full bg-gradient-to-r from-brand-500 to-purple-500 opacity-40 blur-sm group-hover:opacity-75 animate-pulse motion-reduce:animate-none pointer-events-none"
+            className="absolute -inset-1 rounded-full bg-theme-accent-gradient opacity-30 blur-sm group-hover:opacity-60 animate-pulse motion-reduce:animate-none pointer-events-none"
           />
 
           {/* Button Content */}
-          <span className="relative flex items-center justify-center w-5 h-5 rounded-full bg-white/20 backdrop-blur-xs">
+          <span className="relative flex items-center justify-center w-5 h-5 rounded-full bg-white/20 border border-white/30 backdrop-blur-xs">
             <Sparkles className="w-3.5 h-3.5 text-white animate-spin-slow motion-reduce:animate-none" />
           </span>
 
-          <span className="relative tracking-tight font-semibold">
+          <span className="relative tracking-tight font-semibold text-white">
             {isOpen ? "Close AI" : "Ask Smart Life"}
           </span>
 
           {/* Online green indicator */}
           <span
             aria-hidden="true"
-            className="relative w-2 h-2 rounded-full bg-emerald-400 shadow-sm"
+            className="relative w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/60"
           />
         </button>
       </div>

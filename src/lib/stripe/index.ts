@@ -21,6 +21,18 @@ export function isRealStripeConfigured(): boolean {
 }
 
 /**
+ * Returns true if real Stripe webhook secret is configured (not dummy placeholders).
+ */
+export function isRealStripeWebhookConfigured(): boolean {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  return (
+    typeof secret === "string" &&
+    !secret.includes("placeholder") &&
+    secret.startsWith("whsec_")
+  );
+}
+
+/**
  * Returns the Stripe SDK singleton instance.
  */
 export function getStripe(): Stripe {
@@ -206,22 +218,28 @@ export async function handleWebhookEvent(event: {
           },
         });
 
-        // Record immutable transaction in billing ledger
-        await tx.billingTransaction.create({
-          data: {
-            userId,
-            subscriptionId: sub.id,
-            plan,
-            amount,
-            currency,
-            status: "paid",
-            paymentProvider: "stripe",
-            transactionId: paymentIntentId,
-            billingCycle,
-            paymentDate: startDate,
-            notes: `Stripe Checkout completed for ${planName} (${billingCycle})`,
-          },
+        // Record immutable transaction in billing ledger (idempotent)
+        const existingTx = await tx.billingTransaction.findUnique({
+          where: { transactionId: paymentIntentId },
         });
+
+        if (!existingTx) {
+          await tx.billingTransaction.create({
+            data: {
+              userId,
+              subscriptionId: sub.id,
+              plan,
+              amount,
+              currency,
+              status: "paid",
+              paymentProvider: "stripe",
+              transactionId: paymentIntentId,
+              billingCycle,
+              paymentDate: startDate,
+              notes: `Stripe Checkout completed for ${planName} (${billingCycle})`,
+            },
+          });
+        }
       });
 
       return { handled: true, message: `Activated ${plan} subscription for user ${userId}` };

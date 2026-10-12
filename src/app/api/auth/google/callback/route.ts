@@ -1,5 +1,5 @@
 // src/app/api/auth/google/callback/route.ts
-// Secure Google OAuth 2.0 callback handler with CSRF verification, customer linking, and dashboard redirection
+// Secure Google OAuth 2.0 callback handler supporting Web and Windows Desktop loopback authentication.
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -16,11 +16,98 @@ import {
   exchangeGoogleCodeForTokens,
   getGoogleUserProfile,
   parseAndValidateOAuthState,
+  createDesktopAuthTicket,
 } from "@/lib/auth/google-oauth";
 import { UserRole } from "@/types";
 import { hashPassword } from "@/lib/auth/password";
 
 export const dynamic = "force-dynamic";
+
+function renderDesktopSuccessPage(): Response {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Authentication Successful - Smart Life Manager</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #090d16;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(16px);
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      color: #10b981;
+      font-size: 32px;
+      font-weight: bold;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 10px;
+      color: #ffffff;
+    }
+    p {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin: 0 0 24px;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #818cf8;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✓</div>
+    <div class="badge">Desktop Authentication</div>
+    <h1>Authentication Successful</h1>
+    <p>Your Google account has been verified. You may now close this browser tab and return to the <strong>Smart Life Manager</strong> desktop application.</p>
+  </div>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -32,7 +119,6 @@ export async function GET(request: Request) {
     const dest = new URL("/login", url.origin);
     dest.searchParams.set(paramKey, paramValue);
     const res = NextResponse.redirect(dest);
-    // Clear CSRF state cookie
     res.cookies.set("google_oauth_state", "", { maxAge: 0, path: "/" });
     return res;
   };
@@ -51,24 +137,26 @@ export async function GET(request: Request) {
     return loginRedirect("error", "missing_code");
   }
 
-  // 3. Verify server configuration
-  if (!isGoogleOAuthConfigured()) {
-    return loginRedirect("error", "google_not_configured");
-  }
-
-  // 4. Validate CSRF state token
+  // 3. Cryptographically validate state
   const cookieStore = await cookies();
   const expectedCsrf = cookieStore.get("google_oauth_state")?.value;
-  const { valid: isStateValid, returnTo } = parseAndValidateOAuthState(state, expectedCsrf);
+  const stateData = parseAndValidateOAuthState(state, expectedCsrf);
 
-  if (!isStateValid) {
-    console.warn("[Google OAuth Callback] State validation failed (possible CSRF attempt or expired state)");
+  if (!stateData.valid) {
+    console.warn("[Google OAuth Callback] State cryptographic validation failed");
     return loginRedirect("error", "google_invalid_state");
+  }
+
+  const isDesktop = stateData.isDesktop;
+
+  // 4. Verify server configuration for mode
+  if (!isGoogleOAuthConfigured(isDesktop)) {
+    return loginRedirect("error", "google_not_configured");
   }
 
   try {
     // 5. Exchange code for access token
-    const tokenData = await exchangeGoogleCodeForTokens(code, request);
+    const tokenData = await exchangeGoogleCodeForTokens(code, request, isDesktop);
     if (!tokenData.access_token) {
       throw new Error("No access_token returned by Google");
     }
@@ -104,7 +192,7 @@ export async function GET(request: Request) {
         data: {
           email: normalizedEmail,
           passwordHash,
-          role: "user", // Normal customer account
+          role: "user",
           emailVerified: Boolean(profile.email_verified ?? true),
           profile: {
             create: {
@@ -152,7 +240,7 @@ export async function GET(request: Request) {
 
       console.log(`[Google OAuth] Created new customer account: ${user.email} (ID: ${user.id})`);
     } else {
-      // Existing user: preserve user ID and role, mark email verified, update avatar if unset
+      // Existing user: preserve role, update verification and avatar if unset
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -169,7 +257,6 @@ export async function GET(request: Request) {
         },
       });
 
-      // Ensure user subscription exists
       if (!user.userSubscription) {
         await prisma.userSubscription.create({
           data: {
@@ -194,28 +281,63 @@ export async function GET(request: Request) {
       role: user.role as UserRole,
     });
 
-    const isTargetingAdmin = returnTo.startsWith("/admin");
+    // Asynchronously record central telemetry if central backend is configured
+    try {
+      const { isSupabaseServerAdminConfigured } = await import("@/lib/supabase/config");
+      if (isSupabaseServerAdminConfigured()) {
+        const { ensureCentralCustomerProfile, recordCentralLoginEvent } = await import("@/lib/supabase/server");
+        const displayName =
+          user.profile?.displayName ||
+          `${user.profile?.firstName || ""} ${user.profile?.lastName || ""}`.trim() ||
+          user.email.split("@")[0];
+        Promise.allSettled([
+          ensureCentralCustomerProfile({
+            customerId: user.id,
+            email: user.email,
+            fullName: displayName,
+          }),
+          recordCentralLoginEvent({
+            customerId: user.id,
+            deviceId: isDesktop ? "desktop_google_oauth" : "web_browser_client",
+            loginMethod: "google",
+            os: "windows",
+            appVersion: "1.0.0",
+          }),
+        ]).catch(() => {});
+      }
+    } catch {}
+
+    // -------------------------------------------------------------
+    // DESKTOP OAUTH FLOW HANDSHAKE (RFC 8252)
+    // -------------------------------------------------------------
+    if (isDesktop) {
+      // Create single-use 30-second ticket indexed by state CSRF
+      createDesktopAuthTicket(stateData.csrf, token);
+      console.log("[Google OAuth] Desktop authentication ticket created for CSRF state.");
+      return renderDesktopSuccessPage();
+    }
+
+    // -------------------------------------------------------------
+    // STANDARD WEB OAUTH FLOW
+    // -------------------------------------------------------------
+    const isTargetingAdmin = stateData.returnTo.startsWith("/admin");
     const isOwner = isAuthorizedOwnerAdmin(user.email, user.role);
 
-    let finalPath = returnTo || "/";
+    let finalPath = stateData.returnTo || "/";
 
     if (isTargetingAdmin) {
       if (isOwner) {
-        // Authorized Master Administrator: set dedicated admin session cookie
         await setAdminSessionCookie(token);
         finalPath = "/admin";
       } else {
-        // Unauthorized customer attempting to log into admin: reject access
         finalPath = "/admin/login?error=forbidden";
       }
     } else {
-      // Normal Customer Portal authentication: set customer session cookie
       await setSessionCookie(token);
     }
 
     const redirectTarget = new URL(finalPath, url.origin);
     const response = NextResponse.redirect(redirectTarget);
-    // Clear CSRF state cookie
     response.cookies.set("google_oauth_state", "", { maxAge: 0, path: "/" });
     return response;
   } catch (err: unknown) {

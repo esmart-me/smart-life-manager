@@ -18,6 +18,10 @@ export interface VehicleFormData {
   nextServiceMileage?: number | string | null;
   insuranceExpiry?: string | null;
   registrationExpiry?: string | null;
+  pucNumber?: string | null;
+  pucIssueDate?: string | null;
+  pucExpiryDate?: string | null;
+  pucNotes?: string | null;
   nextServiceDate?: string | null;
   notes?: string | null;
 }
@@ -47,6 +51,10 @@ export function VehicleFormModal({
   const [nextServiceMileage, setNextServiceMileage] = useState("");
   const [insuranceExpiry, setInsuranceExpiry] = useState("");
   const [registrationExpiry, setRegistrationExpiry] = useState("");
+  const [pucNumber, setPucNumber] = useState("");
+  const [pucIssueDate, setPucIssueDate] = useState("");
+  const [pucExpiryDate, setPucExpiryDate] = useState("");
+  const [pucNotes, setPucNotes] = useState("");
   const [nextServiceDate, setNextServiceDate] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -79,6 +87,10 @@ export function VehicleFormModal({
       );
       setInsuranceExpiry(formatDateInput(initialData.insuranceExpiry));
       setRegistrationExpiry(formatDateInput(initialData.registrationExpiry));
+      setPucNumber(initialData.pucNumber || "");
+      setPucIssueDate(formatDateInput(initialData.pucIssueDate));
+      setPucExpiryDate(formatDateInput(initialData.pucExpiryDate));
+      setPucNotes(initialData.pucNotes || "");
       setNextServiceDate(formatDateInput(initialData.nextServiceDate));
       setNotes(initialData.notes || "");
     } else {
@@ -92,6 +104,10 @@ export function VehicleFormModal({
       setNextServiceMileage("");
       setInsuranceExpiry("");
       setRegistrationExpiry("");
+      setPucNumber("");
+      setPucIssueDate("");
+      setPucExpiryDate("");
+      setPucNotes("");
       setNextServiceDate("");
       setNotes("");
     }
@@ -123,6 +139,10 @@ export function VehicleFormModal({
         nextServiceMileage: nextServiceMileage !== "" ? Number(nextServiceMileage) : null,
         insuranceExpiry: insuranceExpiry ? new Date(insuranceExpiry).toISOString() : null,
         registrationExpiry: registrationExpiry ? new Date(registrationExpiry).toISOString() : null,
+        pucNumber: pucNumber.trim() || null,
+        pucIssueDate: pucIssueDate ? new Date(pucIssueDate).toISOString() : null,
+        pucExpiryDate: pucExpiryDate ? new Date(pucExpiryDate).toISOString() : null,
+        pucNotes: pucNotes.trim() || null,
         nextServiceDate: nextServiceDate ? new Date(nextServiceDate).toISOString() : null,
         notes: notes.trim() || null,
       };
@@ -301,6 +321,64 @@ export function VehicleFormModal({
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Pollution Under Control (PUC) Certificate Section */}
+          <div className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Pollution Certificate (PUC / Emissions Test)</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  PUC Certificate No.
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. PUC-2026-98124"
+                  value={pucNumber}
+                  onChange={(e) => setPucNumber(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Issue Date
+                </label>
+                <input
+                  type="date"
+                  value={pucIssueDate}
+                  onChange={(e) => setPucIssueDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  PUC Expiry Date
+                </label>
+                <input
+                  type="date"
+                  value={pucExpiryDate}
+                  onChange={(e) => setPucExpiryDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-base sm:text-sm min-h-[42px] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                PUC Center / Remarks (Optional)
+              </label>
+              <Input
+                type="text"
+                placeholder="e.g. Emission testing center, valid for 6 months"
+                value={pucNotes}
+                onChange={(e) => setPucNotes(e.target.value)}
+              />
             </div>
           </div>
 

@@ -43,9 +43,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify password if password was provided or required
-    if (password) {
-      const isValid = await bcrypt.compare(password, dbUser.passwordHash);
+    // For password-authenticated accounts, password verification is strictly mandatory
+    const hasPassword = Boolean(dbUser.passwordHash && dbUser.passwordHash.trim().length > 0);
+
+    if (hasPassword) {
+      if (!password || typeof password !== "string") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "PASSWORD_REQUIRED",
+              message: "Account password is required to confirm permanent account deletion.",
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      const isValid = await bcrypt.compare(password, dbUser.passwordHash!);
       if (!isValid) {
         return NextResponse.json(
           { success: false, error: { code: "INVALID_PASSWORD", message: "Incorrect password provided." } },

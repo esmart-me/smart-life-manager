@@ -33,20 +33,29 @@ export default function ErrorBoundary({
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
-          onClick={() => reset()}
-          className="gap-2"
+          onClick={() => {
+            try {
+              reset();
+            } catch {
+              window.location.reload();
+            }
+          }}
+          className="gap-2 cursor-pointer"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Try Again</span>
         </Button>
 
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center text-sm font-medium px-4 py-2 rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors gap-2"
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = "/";
+          }}
+          className="inline-flex items-center justify-center text-sm font-medium px-4 py-2 rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors gap-2 cursor-pointer"
         >
           <Home className="w-4 h-4" />
           <span>Return to Dashboard</span>
-        </Link>
+        </button>
       </div>
 
       {process.env.NODE_ENV === "development" && error.digest && (

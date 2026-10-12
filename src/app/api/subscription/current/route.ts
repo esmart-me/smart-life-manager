@@ -1,7 +1,14 @@
+// src/app/api/subscription/current/route.ts
+// Authoritative current subscription & entitlement endpoint.
+// Central Supabase is strictly authoritative.
+
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserPlanSummary, getUserSubscription } from "@/lib/plans/plan-service";
+import { getAuthoritativeEntitlement } from "@/lib/entitlement/entitlement-service";
 import { prisma } from "@/lib/db/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -13,7 +20,8 @@ export async function GET() {
   }
 
   try {
-    const [summary, subscription, transactions] = await Promise.all([
+    const [entitlement, summary, subscription, transactions] = await Promise.all([
+      getAuthoritativeEntitlement(user.id),
       getUserPlanSummary(user.id),
       getUserSubscription(user.id),
       prisma.billingTransaction.findMany({
@@ -29,6 +37,7 @@ export async function GET() {
         summary,
         subscription,
         transactions,
+        entitlement,
       },
     });
   } catch (error) {

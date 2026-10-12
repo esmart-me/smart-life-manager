@@ -322,7 +322,7 @@ export function PaymentSettingsClient({ initialConfig }: { initialConfig: Paymen
               ) : (
                 <div className="p-4 rounded-lg bg-slate-900/60 border border-dashed border-slate-800 text-center">
                   <p className="text-xs text-slate-500">
-                    No QR code image uploaded yet. Click "Upload QR Image" above to upload your payment QR code.
+                    No QR code image uploaded yet. Click &quot;Upload QR Image&quot; above to upload your payment QR code.
                   </p>
                 </div>
               )}

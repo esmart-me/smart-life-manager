@@ -20,7 +20,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-[env(safe-area-inset-bottom,0px)]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-theme-border shadow-lg pb-[env(safe-area-inset-bottom,0px)]"
     >
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
         {MOBILE_NAV_ITEMS.map((item) => {
@@ -34,19 +34,19 @@ export function MobileBottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center w-14 py-1 rounded-xl transition-all duration-150 select-none",
+                "flex flex-col items-center justify-center w-14 py-1 rounded-xl transition-all duration-150 select-none active:scale-[0.95]",
                 isActive
-                  ? "text-brand-600 dark:text-brand-400 font-semibold"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  ? "text-theme-accent font-semibold"
+                  : "text-theme-text-muted hover:text-theme-text-primary"
               )}
             >
               <div
                 className={cn(
-                  "p-1 rounded-lg transition-transform",
-                  isActive && "bg-brand-50 dark:bg-brand-950/60 scale-105"
+                  "p-1.5 rounded-xl transition-all",
+                  isActive && "bg-theme-accent-subtle text-theme-accent scale-105 border border-theme-accent/30 shadow-2xs"
                 )}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4.5 h-4.5" />
               </div>
               <span className="text-[10px] tracking-tight mt-0.5 leading-none">
                 {item.label}
@@ -56,5 +56,6 @@ export function MobileBottomNav() {
         })}
       </div>
     </nav>
+
   );
 }

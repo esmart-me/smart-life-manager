@@ -311,7 +311,7 @@ export function CustomerOnboardingModal() {
       aria-labelledby="onboarding-step-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
     >
-      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-xl glass-elevated border border-slate-200/90 dark:border-white/[0.12] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Top Progress Bar */}
         <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 overflow-hidden">
           <div
@@ -410,7 +410,7 @@ export function CustomerOnboardingModal() {
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-4 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="px-6 py-4 glass-panel border-t border-slate-100 dark:border-white/10 flex items-center justify-between">
           <div>
             {!isFirstStep ? (
               <button

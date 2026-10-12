@@ -19,11 +19,13 @@ import {
   Mail,
   Eye,
   Edit3,
+  HeartPulse,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { FamilyRole } from "@/lib/plans/constants";
 import { UserPlanSummary } from "@/lib/plans/plan-service";
+import { HealthSection } from "./HealthSection";
 import Link from "next/link";
 
 interface MemberItem {
@@ -49,6 +51,7 @@ interface FamilyGroupData {
 }
 
 export function FamilyHubClient() {
+  const [mainTab, setMainTab] = useState<"members" | "health">("members");
   const [group, setGroup] = useState<FamilyGroupData | null>(null);
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [planSummary, setPlanSummary] = useState<UserPlanSummary | null>(null);
@@ -282,28 +285,7 @@ export function FamilyHubClient() {
     }
   };
 
-  const handleUpgradeToFamily = async () => {
-    try {
-      const res = await fetch("/api/subscription/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan: "family",
-          billingInterval: "monthly",
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNotification({
-          type: "success",
-          message: "Upgraded to Family Circle Plus! Multi-member sharing enabled.",
-        });
-        fetchFamilyData();
-      }
-    } catch (err) {
-      console.error("Upgrade error:", err);
-    }
-  };
+
 
   const isFamilyTier = planSummary?.isFamily ?? false;
 
@@ -384,8 +366,39 @@ export function FamilyHubClient() {
         </div>
       )}
 
-      {/* Plan Status Banner (if on Free or Premium tier) */}
-      {!isFamilyTier && (
+      {/* Circle Navigation Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
+        <button
+          type="button"
+          onClick={() => setMainTab("members")}
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors ${
+            mainTab === "members"
+              ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Household Members & Roles ({members.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab("health")}
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors ${
+            mainTab === "health"
+              ? "border-rose-600 text-rose-600 dark:border-rose-400 dark:text-rose-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <HeartPulse className="w-4 h-4" />
+          <span>Health Profiles & Insurance</span>
+        </button>
+      </div>
+
+      {mainTab === "members" ? (
+        <>
+          {/* Plan Status Banner (if on Free or Premium tier) */}
+          {!isFamilyTier && (
         <div className="p-4 rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 via-white to-purple-50/80 dark:from-indigo-950/30 dark:via-slate-900 dark:to-purple-950/30 shadow-2xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -399,15 +412,16 @@ export function FamilyHubClient() {
                 You are currently on the <strong>{planSummary?.planName || "Free"}</strong> tier. In this environment, you can test family member creation and role configurations. Upgrade to Family Circle Plus to activate full multi-user sharing.
               </p>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleUpgradeToFamily}
-              className="text-xs font-semibold gap-1.5 shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              <span>Activate Family Plan</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
+            <Link href="/premium">
+              <Button
+                variant="primary"
+                size="sm"
+                className="text-xs font-semibold gap-1.5 shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <span>Upgrade to Family Plan</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
           </div>
         </div>
       )}
@@ -580,6 +594,10 @@ export function FamilyHubClient() {
           ))}
         </div>
       </div>
+    </>
+  ) : (
+    <HealthSection familyMembers={members.map((m) => ({ id: m.id, name: m.name }))} />
+  )}
 
       {/* Add Member Modal */}
       {showAddModal && (

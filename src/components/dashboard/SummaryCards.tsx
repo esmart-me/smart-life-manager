@@ -64,14 +64,14 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* 1. DOCUMENTS SUMMARY CARD */}
-        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between">
+        <div className="p-5 rounded-2xl glass-card glass-card-hover flex flex-col justify-between transition-all animate-card-enter stagger-1">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Documents
             </span>
-            <div className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-theme-accent-subtle text-theme-accent flex items-center justify-center border border-theme-accent/25 shadow-2xs">
               <FileText className="w-4 h-4" />
             </div>
           </div>
@@ -84,7 +84,7 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
               <button
                 type="button"
                 onClick={() => onOpenModal("document")}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-theme-accent hover:underline"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Document</span>
@@ -114,7 +114,7 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <Link
               href="/documents"
-              className="text-[11px] font-medium text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400 inline-flex items-center gap-1 transition-colors"
+              className="text-[11px] font-medium text-slate-500 hover:text-theme-accent dark:text-slate-400 dark:hover:text-theme-accent inline-flex items-center gap-1 transition-colors"
             >
               <span>View Vault</span>
               <ArrowRight className="w-3 h-3" />
@@ -123,12 +123,12 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
         </div>
 
         {/* 2. REMINDERS SUMMARY CARD */}
-        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between">
+        <div className="p-5 rounded-2xl glass-card glass-card-hover flex flex-col justify-between transition-all animate-card-enter stagger-2">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Reminders
             </span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 shadow-2xs">
               <Bell className="w-4 h-4" />
             </div>
           </div>
@@ -149,7 +149,7 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
             </div>
           ) : (
             <div className="my-1">
-              <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 {stats.reminders.total}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -164,7 +164,7 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between">
             <Link
               href="/reminders"
               className="text-[11px] font-medium text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 inline-flex items-center gap-1 transition-colors"
@@ -175,13 +175,14 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
           </div>
         </div>
 
+
         {/* 3. PAYMENTS SUMMARY CARD (Upcoming & Overdue Payments) */}
-        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between">
+        <div className="p-5 rounded-2xl glass-card glass-card-hover flex flex-col justify-between transition-all animate-card-enter stagger-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Payments & Bills
+              Payments &amp; Bills
             </span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-theme-accent-subtle text-theme-accent flex items-center justify-center border border-theme-accent/20 shadow-2xs">
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
@@ -194,7 +195,7 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
               <button
                 type="button"
                 onClick={() => onOpenModal("payment")}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-theme-accent hover:underline"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Payment</span>
@@ -202,7 +203,7 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
             </div>
           ) : (
             <div className="my-1 space-y-1">
-              <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 {formatCurrency(stats.payments.totalAmountDue, stats.payments.currency)}
               </p>
               <div className="text-[11px] space-y-0.5">
@@ -224,10 +225,10 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between">
             <Link
               href="/finance"
-              className="text-[11px] font-medium text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 inline-flex items-center gap-1 transition-colors"
+              className="text-[11px] font-medium text-slate-500 hover:text-theme-accent dark:text-slate-400 dark:hover:text-theme-accent inline-flex items-center gap-1 transition-colors"
             >
               <span>Manage Bills</span>
               <ArrowRight className="w-3 h-3" />
@@ -235,13 +236,14 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
           </div>
         </div>
 
+
         {/* 4. EXPENSES SUMMARY CARD (Today's, Monthly, Budget Remaining) */}
-        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between">
+        <div className="p-5 rounded-2xl glass-card glass-card-hover flex flex-col justify-between transition-all animate-card-enter stagger-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Expenses & Budget
+              Expenses &amp; Budget
             </span>
-            <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-theme-accent-subtle text-theme-accent flex items-center justify-center border border-theme-accent/25 shadow-2xs">
               <Receipt className="w-4 h-4" />
             </div>
           </div>
@@ -254,7 +256,7 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
               <button
                 type="button"
                 onClick={() => onOpenModal("expense")}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-theme-accent hover:underline"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Expense</span>
@@ -262,13 +264,13 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
             </div>
           ) : (
             <div className="my-1 space-y-1">
-              <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 {formatCurrency(stats.expenses.totalAmount, stats.expenses.currency)}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                 {stats.expenses.totalRecorded} {stats.expenses.totalRecorded === 1 ? "entry" : "entries"} logged
               </p>
-              <div className="text-[11px] space-y-0.5 text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <div className="text-[11px] space-y-0.5 text-slate-500 dark:text-slate-400 pt-1.5 border-t border-slate-200/60 dark:border-white/[0.06]">
                 <p>
                   Today: <strong className="text-slate-800 dark:text-slate-200">{formatCurrency(stats.expenses.todayAmount, stats.expenses.currency)}</strong> • Month: <strong className="text-slate-800 dark:text-slate-200">{formatCurrency(stats.expenses.monthlyAmount, stats.expenses.currency)}</strong>
                 </p>
@@ -289,10 +291,10 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between">
             <Link
               href="/finance"
-              className="text-[11px] font-medium text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 inline-flex items-center gap-1 transition-colors"
+              className="text-[11px] font-medium text-slate-500 hover:text-theme-accent dark:text-slate-400 dark:hover:text-theme-accent inline-flex items-center gap-1 transition-colors"
             >
               <span>View Finance</span>
               <ArrowRight className="w-3 h-3" />
@@ -302,17 +304,17 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
       </div>
 
       {stats.connectedModules && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
           <Link
             href="/more/vehicles"
-            className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between group shadow-2xs"
+            className="p-3.5 rounded-2xl glass-card glass-card-hover transition-all flex items-center justify-between group shadow-2xs"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                <Car className="w-3.5 h-3.5" />
+              <div className="w-8 h-8 rounded-xl bg-theme-accent-subtle text-theme-accent flex items-center justify-center border border-theme-accent/25 shadow-2xs shrink-0">
+                <Car className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-theme-accent transition-colors">
                   Vehicles Garage
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -325,19 +327,19 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
                 </p>
               </div>
             </div>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-theme-accent transition-colors" />
           </Link>
 
           <Link
             href="/subscriptions"
-            className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between group shadow-2xs"
+            className="p-3.5 rounded-2xl glass-card glass-card-hover transition-all flex items-center justify-between group shadow-2xs"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <RefreshCw className="w-3.5 h-3.5" />
+              <div className="w-8 h-8 rounded-xl bg-theme-accent-subtle text-theme-accent flex items-center justify-center border border-theme-accent/25 shadow-2xs shrink-0">
+                <RefreshCw className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-theme-accent transition-colors">
                   Subscriptions
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -345,16 +347,16 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
                 </p>
               </div>
             </div>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-theme-accent transition-colors" />
           </Link>
 
           <Link
             href="/more/dates"
-            className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between group shadow-2xs"
+            className="p-3.5 rounded-2xl glass-card glass-card-hover transition-all flex items-center justify-between group shadow-2xs"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <Calendar className="w-3.5 h-3.5" />
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/25 shadow-2xs shrink-0">
+                <Calendar className="w-4 h-4" />
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
@@ -372,3 +374,4 @@ export function SummaryCards({ stats, onOpenModal }: SummaryCardsProps) {
     </section>
   );
 }
+

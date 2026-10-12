@@ -13,34 +13,66 @@ export interface RegionalPlanPriceDTO {
   enabled: boolean;
 }
 
+let defaultRegionalPricingPromise: Promise<void> | null = null;
+
 /**
  * Seeds default regional prices for all 10 regions if not already seeded in database.
+ * Thread-safe and concurrency-guarded to prevent P2002 race conditions.
  */
 export async function ensureDefaultRegionalPricings(): Promise<void> {
-  const existing = await prisma.planRegionalPricing.findMany();
-  const existingSet = new Set(existing.map((p) => `${p.plan}_${p.regionCode}`));
-
-  const plans: PlanTier[] = ["free", "premium", "family"];
-
-  for (const reg of SUPPORTED_REGIONS) {
-    for (const plan of plans) {
-      const key = `${plan}_${reg.countryCode}`;
-      if (!existingSet.has(key)) {
-        await prisma.planRegionalPricing.create({
-          data: {
-            plan,
-            regionCode: reg.countryCode,
-            country: reg.country,
-            currency: reg.currencyCode,
-            currencySymbol: reg.currencySymbol,
-            monthlyPrice: reg.defaultMonthlyPrice[plan],
-            yearlyPrice: reg.defaultYearlyPrice[plan],
-            enabled: true,
-          },
-        });
-      }
-    }
+  if (defaultRegionalPricingPromise) {
+    return defaultRegionalPricingPromise;
   }
+
+  defaultRegionalPricingPromise = (async () => {
+    try {
+      const existing = await prisma.planRegionalPricing.findMany();
+      const existingSet = new Set(existing.map((p) => `${p.plan}_${p.regionCode}`));
+
+      const plans: PlanTier[] = ["free", "premium", "family"];
+
+      for (const reg of SUPPORTED_REGIONS) {
+        for (const plan of plans) {
+          const key = `${plan}_${reg.countryCode}`;
+          if (!existingSet.has(key)) {
+            try {
+              await prisma.planRegionalPricing.upsert({
+                where: {
+                  plan_regionCode: {
+                    plan,
+                    regionCode: reg.countryCode,
+                  },
+                },
+                update: {},
+                create: {
+                  plan,
+                  regionCode: reg.countryCode,
+                  country: reg.country,
+                  currency: reg.currencyCode,
+                  currencySymbol: reg.currencySymbol,
+                  monthlyPrice: reg.defaultMonthlyPrice[plan],
+                  yearlyPrice: reg.defaultYearlyPrice[plan],
+                  enabled: true,
+                },
+              });
+              existingSet.add(key);
+            } catch (err: any) {
+              // Ignore P2002 (Unique constraint failed) if another concurrent request or process raced
+              if (err?.code !== "P2002") {
+                console.warn(`[Regional Pricing] Pricing seed non-critical issue for ${key}:`, err?.message);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Clear latch on outer failure so next call can retry
+      defaultRegionalPricingPromise = null;
+      throw err;
+    }
+  })();
+
+  return defaultRegionalPricingPromise;
 }
 
 /**

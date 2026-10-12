@@ -30,14 +30,18 @@ import {
   MoonStar,
   Radio,
   Check,
+  Palette,
 } from "lucide-react";
 import { testNotificationSound } from "@/lib/notifications/sound";
+import { BackupDataClient } from "@/components/settings/BackupDataClient";
+import { CustomThemeSelector } from "@/components/settings/CustomThemeSelector";
+
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { AlertBanner } from "@/components/ui/AlertBanner";
 import { Badge } from "@/components/ui/Badge";
-import { SUPPORTED_REGIONS, getRegion, formatRegionalCurrency } from "@/lib/regions";
+import { SUPPORTED_REGIONS, ISO_CURRENCIES, getRegion, formatRegionalCurrency } from "@/lib/regions";
 
 export interface SettingsTransactionDTO {
   id: string;
@@ -110,6 +114,7 @@ interface SettingsFormProps {
 
 type SettingsTab =
   | "profile"
+  | "appearance"
   | "region"
   | "notifications"
   | "privacy"
@@ -167,6 +172,8 @@ export function SettingsForm({
     if (typeof window !== "undefined") {
       if (window.location.hash === "#notifications") {
         setActiveTab("notifications");
+      } else if (window.location.hash === "#appearance") {
+        setActiveTab("appearance");
       }
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
         setPushStatus("unsupported");
@@ -408,9 +415,10 @@ export function SettingsForm({
 
   const tabs: Array<{ id: SettingsTab; label: string; icon: any }> = [
     { id: "profile", label: "Profile", icon: User },
+    { id: "appearance", label: "Appearance", icon: Palette },
     { id: "region", label: "Region & Currency", icon: Globe },
     { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "privacy", label: "Privacy & Theme", icon: Shield },
+    { id: "privacy", label: "Privacy & Security", icon: Shield },
     { id: "data", label: "Data Management", icon: Database },
     { id: "subscription", label: "Subscription", icon: Sparkles },
   ];
@@ -426,7 +434,7 @@ export function SettingsForm({
       )}
 
       {/* Tabs Navigation */}
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl no-scrollbar">
+      <div className="flex overflow-x-auto gap-2 p-1.5 glass-panel border border-slate-200/80 dark:border-white/10 rounded-2xl no-scrollbar">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -435,9 +443,9 @@ export function SettingsForm({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg shrink-0 transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl shrink-0 transition-all ${
                 isActive
-                  ? "bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-2xs"
+                  ? "glass-card text-theme-accent font-bold shadow-xs border border-theme-accent/30"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -555,6 +563,30 @@ export function SettingsForm({
           </Card>
         )}
 
+        {/* TAB: APPEARANCE */}
+        {activeTab === "appearance" && (
+          <div className="space-y-6 animate-card-enter">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-theme-accent-subtle text-theme-accent border border-theme-accent/20">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base">Liquid Glass Appearance & Custom Themes</CardTitle>
+                    <CardDescription className="text-xs">
+                      Choose your preferred interface theme. Switch dynamically between frosted clear glass, crisp emerald accents, deep obsidian, and crimson contrast.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CustomThemeSelector />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* TAB 2: REGION & CURRENCY */}
         {activeTab === "region" && (
           <Card>
@@ -587,17 +619,23 @@ export function SettingsForm({
                   <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Display Currency
                   </label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      value={profile.currency}
-                      onChange={(e) => setProfile({ ...profile, currency: e.target.value.toUpperCase() })}
-                      className="uppercase font-semibold"
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">
-                      {currentRegion.currencySymbol}
-                    </span>
-                  </div>
+                  <select
+                    value={profile.currency}
+                    onChange={(e) => setProfile({ ...profile, currency: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 text-base sm:text-sm min-h-[42px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
+                  >
+                    {ISO_CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code} — {c.name} ({c.symbol})
+                      </option>
+                    ))}
+                    {!ISO_CURRENCIES.some((c) => c.code === profile.currency) && (
+                      <option value={profile.currency}>{profile.currency}</option>
+                    )}
+                  </select>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Real-time decimal formatting will automatically adjust based on standard currency precision.
+                  </span>
                 </div>
               </div>
 
@@ -1033,75 +1071,19 @@ export function SettingsForm({
           </div>
         )}
 
-        {/* TAB 4: PRIVACY & THEME */}
+        {/* TAB: PRIVACY & SECURITY */}
         {activeTab === "privacy" && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Privacy & Appearance</CardTitle>
+              <CardTitle className="text-base">Privacy & Account Security</CardTitle>
               <CardDescription className="text-xs">
-                Theme display options and account security privacy settings.
+                Manage your account security alerts and personal privacy preferences. For visual themes, visit the Appearance tab.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              {/* Theme Selector */}
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Interface Theme
-                </label>
-                <div className="grid grid-cols-3 gap-3 max-w-md">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTheme("light");
-                      setSettings({ ...settings, theme: "light" });
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold gap-1.5 transition-all ${
-                      theme === "light"
-                        ? "border-brand-600 bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 ring-2 ring-brand-500/20"
-                        : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    <Sun className="w-4 h-4" />
-                    <span>Light</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTheme("dark");
-                      setSettings({ ...settings, theme: "dark" });
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold gap-1.5 transition-all ${
-                      theme === "dark"
-                        ? "border-brand-600 bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 ring-2 ring-brand-500/20"
-                        : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    <Moon className="w-4 h-4" />
-                    <span>Dark</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTheme("system");
-                      setSettings({ ...settings, theme: "system" });
-                    }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold gap-1.5 transition-all ${
-                      theme === "system"
-                        ? "border-brand-600 bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 ring-2 ring-brand-500/20"
-                        : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    <Laptop className="w-4 h-4" />
-                    <span>System</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Privacy Toggles */}
-              <div className="pt-2">
-                <label className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 cursor-pointer">
+              <div>
+                <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 cursor-pointer">
                   <div>
                     <span className="text-xs font-semibold text-slate-900 dark:text-white block">
                       Critical Security Alerts
@@ -1114,9 +1096,33 @@ export function SettingsForm({
                     type="checkbox"
                     checked={settings.securityAlerts}
                     onChange={(e) => setSettings({ ...settings, securityAlerts: e.target.checked })}
-                    className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                    className="w-4 h-4 text-theme-accent rounded focus:ring-theme-accent"
                   />
                 </label>
+              </div>
+
+              {/* Quick Link to Appearance */}
+              <div className="p-3.5 rounded-xl glass-subtle border border-slate-200/60 dark:border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Palette className="w-4 h-4 text-theme-accent" />
+                  <div>
+                    <span className="text-xs font-semibold text-slate-900 dark:text-white block">
+                      Custom Themes & Liquid Glass UI
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Looking to customize themes, color palettes, and glass styling?
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveTab("appearance")}
+                  className="text-xs"
+                >
+                  Go to Appearance
+                </Button>
               </div>
 
               <div className="pt-2">
@@ -1132,6 +1138,9 @@ export function SettingsForm({
         {/* TAB 5: DATA MANAGEMENT */}
         {activeTab === "data" && (
           <div className="space-y-6">
+            {/* ── Backup & Data Export ── */}
+            <BackupDataClient />
+
             {/* Clear Personal Data Card */}
             <Card className="border-amber-200 dark:border-amber-900/50">
               <CardHeader>
@@ -1139,6 +1148,7 @@ export function SettingsForm({
                   <Database className="w-5 h-5" />
                   <CardTitle className="text-base">Clear My Application Data</CardTitle>
                 </div>
+
                 <CardDescription className="text-xs">
                   Remove your documents, reminders, bills, expenses, vehicles, and subscriptions while keeping your login account active.
                 </CardDescription>

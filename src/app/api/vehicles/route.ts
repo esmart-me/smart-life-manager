@@ -63,6 +63,10 @@ export async function POST(request: Request) {
       nextServiceMileage,
       insuranceExpiry,
       registrationExpiry,
+      pucNumber,
+      pucIssueDate,
+      pucExpiryDate,
+      pucNotes,
       nextServiceDate,
       notes,
     } = body;
@@ -76,6 +80,8 @@ export async function POST(request: Request) {
 
     const cleanInsurance = insuranceExpiry ? new Date(insuranceExpiry) : null;
     const cleanRegistration = registrationExpiry ? new Date(registrationExpiry) : null;
+    const cleanPucIssue = pucIssueDate ? new Date(pucIssueDate) : null;
+    const cleanPucExpiry = pucExpiryDate ? new Date(pucExpiryDate) : null;
     const cleanServiceDate = nextServiceDate ? new Date(nextServiceDate) : null;
 
     // Check plan limits
@@ -115,6 +121,10 @@ export async function POST(request: Request) {
             : null,
         insuranceExpiry: cleanInsurance,
         registrationExpiry: cleanRegistration,
+        pucNumber: pucNumber ? String(pucNumber).trim() : null,
+        pucIssueDate: cleanPucIssue,
+        pucExpiryDate: cleanPucExpiry,
+        pucNotes: pucNotes ? String(pucNotes).trim() : null,
         nextServiceDate: cleanServiceDate,
         notes: notes ? String(notes).trim() : null,
       },

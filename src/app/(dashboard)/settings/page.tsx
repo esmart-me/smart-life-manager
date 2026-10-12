@@ -81,7 +81,7 @@ export default async function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-16">
+    <div className="space-y-6 w-full max-w-5xl pb-16">
       <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
           Account Settings & Preferences

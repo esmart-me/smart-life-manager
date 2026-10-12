@@ -6,6 +6,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { isAiConfigured, generateAiResponse } from "@/lib/ai/gemini-service";
+import { aiLimiter } from "@/lib/security/rate-limit";
+import { checkFeatureAccess } from "@/lib/plans/plan-service";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -13,6 +15,41 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
       { status: 401 }
+    );
+  }
+
+  // Server-side entitlement verification: AI Assistant requires Premium
+  const accessCheck = await checkFeatureAccess(user.id, "ai_assistant");
+  if (!accessCheck.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "PREMIUM_REQUIRED",
+          message: accessCheck.reason || "AI Assistant requires an active Life Pro Premium subscription.",
+        },
+      },
+      { status: 403 }
+    );
+  }
+
+  // Rate limit: 20 prompts per user per minute to safeguard API quota
+  const rateCheck = aiLimiter.check(`ai:${user.id}`, 20, 60 * 1000);
+  if (!rateCheck.success) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "RATE_LIMITED",
+          message: "AI request quota reached. Please wait a moment before sending another prompt.",
+        },
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateCheck.retryAfterSec),
+        },
+      }
     );
   }
 
@@ -78,7 +115,7 @@ export async function POST(request: Request) {
           error: {
             code: "AI_NOT_CONFIGURED",
             message:
-              "AI Assistant is currently awaiting configuration. Please configure GEMINI_API_KEY in your server environment.",
+              "Smart AI is currently unavailable. Please check the Gemini API configuration or internet connection.",
           },
         },
         { status: 503 }

@@ -27,36 +27,36 @@ export function AttentionRequired({ items }: AttentionRequiredProps) {
       badge: "EXPIRED",
       badgeVariant: "danger" as const,
       icon: FileWarning,
-      border: "border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20",
-      iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/50",
+      border: "border-rose-300/60 dark:border-rose-500/25 bg-rose-50/70 dark:bg-rose-950/25 hover:border-rose-400",
+      iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100/80 dark:bg-rose-900/50 border border-rose-300/40 dark:border-rose-700/40",
     },
     overdue_payment: {
       badge: "OVERDUE",
       badgeVariant: "danger" as const,
       icon: DollarSign,
-      border: "border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20",
-      iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/50",
+      border: "border-rose-300/60 dark:border-rose-500/25 bg-rose-50/70 dark:bg-rose-950/25 hover:border-rose-400",
+      iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100/80 dark:bg-rose-900/50 border border-rose-300/40 dark:border-rose-700/40",
     },
     vehicle_alert: {
       badge: "VEHICLE ALERT",
       badgeVariant: "danger" as const,
       icon: Car,
-      border: "border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20",
-      iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/50",
+      border: "border-rose-300/60 dark:border-rose-500/25 bg-rose-50/70 dark:bg-rose-950/25 hover:border-rose-400",
+      iconColor: "text-rose-600 dark:text-rose-400 bg-rose-100/80 dark:bg-rose-900/50 border border-rose-300/40 dark:border-rose-700/40",
     },
     critical_reminder: {
       badge: "CRITICAL",
       badgeVariant: "warning" as const,
       icon: Bell,
-      border: "border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20",
-      iconColor: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50",
+      border: "border-amber-300/60 dark:border-amber-500/25 bg-amber-50/70 dark:bg-amber-950/25 hover:border-amber-400",
+      iconColor: "text-amber-600 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-900/50 border border-amber-300/40 dark:border-amber-700/40",
     },
     expiring_document: {
       badge: "EXPIRING SOON",
       badgeVariant: "warning" as const,
       icon: FileWarning,
-      border: "border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20",
-      iconColor: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50",
+      border: "border-amber-300/60 dark:border-amber-500/25 bg-amber-50/70 dark:bg-amber-950/25 hover:border-amber-400",
+      iconColor: "text-amber-600 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-900/50 border border-amber-300/40 dark:border-amber-700/40",
     },
   };
 
@@ -78,15 +78,15 @@ export function AttentionRequired({ items }: AttentionRequiredProps) {
       </div>
 
       {!hasItems ? (
-        <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+        <div className="p-5 rounded-2xl glass-card flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white tracking-tight">
               Zero critical items requiring attention
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
               All documents, payment due dates, and reminders are current. Smart Life Manager is monitoring your deadlines.
             </p>
           </div>
@@ -101,14 +101,14 @@ export function AttentionRequired({ items }: AttentionRequiredProps) {
               <Link
                 key={item.id}
                 href={item.actionHref}
-                className={`flex items-center justify-between p-3.5 rounded-xl border transition-all hover:shadow-xs group ${config.border}`}
+                className={`flex items-center justify-between p-3.5 rounded-2xl border backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md group ${config.border}`}
               >
                 <div className="flex items-center gap-3 min-w-0 pr-2">
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${config.iconColor}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${config.iconColor}`}>
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:underline">
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate group-hover:underline">
                       {item.title}
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
@@ -131,3 +131,4 @@ export function AttentionRequired({ items }: AttentionRequiredProps) {
     </section>
   );
 }
+

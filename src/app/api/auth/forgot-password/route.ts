@@ -49,13 +49,12 @@ export async function POST(request: Request) {
       message: "If an account with that email exists, we have sent instructions to reset your password.",
     };
 
-    // For local development, testing, and SQLite dev environments (until email service is configured)
-    const isLocalOrTest =
-      process.env.NODE_ENV !== "production" ||
-      process.env.DATABASE_URL?.includes("file:") ||
+    // Debug reset token is strictly prohibited in production and only available in development/test when explicitly enabled
+    const isDevOrTest =
+      process.env.NODE_ENV !== "production" &&
       process.env.ENABLE_DEV_RESET === "true";
 
-    if (isLocalOrTest && resetToken) {
+    if (isDevOrTest && resetToken) {
       responseData.debug = {
         resetToken,
         resetUrl: `/reset-password?token=${resetToken}`,

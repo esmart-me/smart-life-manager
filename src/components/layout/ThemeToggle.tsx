@@ -1,11 +1,13 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
+import { useCustomTheme } from "@/lib/theme/theme-context";
+import { useTheme } from "next-themes";
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { themeConfig, setTheme: setCustomTheme } = useCustomTheme();
+  const { setTheme: setNextTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -15,25 +17,39 @@ export function ThemeToggle({ className }: { className?: string }) {
   if (!mounted) {
     return (
       <div
-        className={`w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 animate-pulse ${
+        className={`w-9 h-9 rounded-xl border border-theme-border glass-subtle animate-pulse ${
           className || ""
         }`}
       />
     );
   }
 
-  const isDark = resolvedTheme === "dark";
+  const isDark = themeConfig.mode === "dark";
+
+  const handleToggle = () => {
+    if (isDark) {
+      setCustomTheme("emerald-white");
+      setNextTheme("light");
+    } else {
+      setCustomTheme("liquid-clear");
+      setNextTheme("dark");
+    }
+  };
 
   return (
     <button
       type="button"
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      className={`p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      onClick={handleToggle}
+      className={`p-2 rounded-xl border border-theme-border glass-subtle text-theme-text-primary hover:border-theme-accent/40 hover:bg-theme-accent-subtle transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-theme-accent ${
         className || ""
       }`}
     >
-      {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+      {isDark ? (
+        <Sun className="w-4 h-4 text-amber-400" />
+      ) : (
+        <Moon className="w-4 h-4 text-theme-accent" />
+      )}
     </button>
   );
 }

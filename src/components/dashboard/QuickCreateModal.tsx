@@ -154,9 +154,9 @@ export function QuickCreateModal({ type, onClose, userCurrency = "USD" }: QuickC
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-headline"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
     >
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-lg glass-elevated border border-slate-200/90 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-modal-pop">
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">

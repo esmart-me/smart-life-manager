@@ -54,7 +54,7 @@ export function DashboardShellClient({
       )}
 
       {/* Main Grid: Attention Required (Alerts) & Upcoming Schedule (Priority 1) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-card-enter stagger-1">
         {/* Left Column: Attention Required */}
         <AttentionRequired items={attentionItems} />
 
@@ -66,10 +66,14 @@ export function DashboardShellClient({
       </div>
 
       {/* Quick Action Buttons (Fast Entry) */}
-      <QuickActions onOpenModal={(type) => setActiveModal(type)} />
+      <div className="animate-card-enter stagger-2">
+        <QuickActions onOpenModal={(type) => setActiveModal(type)} />
+      </div>
 
       {/* Real Data Summary Cards (Life Vault Overview) */}
-      <SummaryCards stats={stats} onOpenModal={(type) => setActiveModal(type)} />
+      <div className="animate-card-enter stagger-3">
+        <SummaryCards stats={stats} onOpenModal={(type) => setActiveModal(type)} />
+      </div>
 
       {/* Canonical Form Modals */}
       <ReminderFormModal

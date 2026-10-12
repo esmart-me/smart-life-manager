@@ -63,10 +63,10 @@ export async function POST(request: Request) {
       message: "If an administrator account with that email exists, password recovery instructions have been initiated.",
     };
 
-    // Return token in local / test mode for automated audits
+    // Return token strictly in local / test mode when explicitly enabled; NEVER in production
     const isDevOrTest =
-      process.env.NODE_ENV !== "production" ||
-      process.env.DATABASE_URL?.includes("file:");
+      process.env.NODE_ENV !== "production" &&
+      process.env.ENABLE_DEV_RESET === "true";
 
     if (isDevOrTest && resetToken) {
       responseData.debug = {

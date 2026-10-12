@@ -22,8 +22,12 @@ export function toCalendarDateString(date: Date | string): string {
 export function calculatePaymentStatus(
   dueDate: Date | string,
   isPaid: boolean,
-  targetDate: Date = new Date()
+  targetDate: Date = new Date(),
+  isClosed?: boolean
 ): PaymentStatus {
+  if (isClosed) {
+    return "Closed";
+  }
   if (isPaid) {
     return "Paid";
   }
@@ -42,54 +46,40 @@ export function calculatePaymentStatus(
 
 /**
  * Advanced date recurrence calculation:
- * Preserves day-of-month where possible (e.g., Jan 31 -> Feb 28/29, or March 15 -> April 15)
+ * Preserves day-of-month where possible with exact month-end clamping (e.g., Jan 31 -> Feb 28/29, or March 15 -> April 15)
  */
-export function calculateNextOccurrence(dueDate: Date | string, frequency?: string | null): Date {
+export function calculateNextOccurrence(
+  dueDate: Date | string,
+  frequency?: string | null,
+  anchorDay?: number
+): Date {
   const current = new Date(dueDate);
-  const next = new Date(current.getTime());
-
+  const origDay = anchorDay || current.getDate();
   const freq = (frequency || "").toLowerCase().trim();
 
-  switch (freq) {
-    case "weekly":
-      next.setDate(next.getDate() + 7);
-      break;
-
-    case "monthly": {
-      const origDay = current.getDate();
-      next.setMonth(next.getMonth() + 1);
-      // If month rolled over too far (e.g. 31st in a 30-day month), clamp to last day of that month
-      if (next.getDate() !== origDay) {
-        next.setDate(0);
-      }
-      break;
-    }
-
-    case "quarterly": {
-      const origDay = current.getDate();
-      next.setMonth(next.getMonth() + 3);
-      if (next.getDate() !== origDay) {
-        next.setDate(0);
-      }
-      break;
-    }
-
-    case "yearly": {
-      const origDay = current.getDate();
-      next.setFullYear(next.getFullYear() + 1);
-      if (next.getDate() !== origDay) {
-        next.setDate(0);
-      }
-      break;
-    }
-
-    default:
-      // Default to +1 month if recurring without explicit frequency
-      next.setMonth(next.getMonth() + 1);
-      break;
+  if (freq === "weekly") {
+    const next = new Date(current.getTime());
+    next.setDate(next.getDate() + 7);
+    return next;
   }
 
-  return next;
+  let addMonths = 1;
+  if (freq === "quarterly") addMonths = 3;
+  else if (freq === "yearly") addMonths = 12;
+  else if (freq === "monthly" || !freq || freq === "none") addMonths = 1;
+
+  const currentYear = current.getFullYear();
+  const currentMonth = current.getMonth();
+  const targetMonthIndex = currentMonth + addMonths;
+
+  const targetYear = currentYear + Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+
+  // Total days in target month: (e.g. Feb 28 or 29, Apr 30)
+  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const clampedDay = Math.min(origDay, daysInTargetMonth);
+
+  return new Date(targetYear, targetMonth, clampedDay, current.getHours(), current.getMinutes(), current.getSeconds());
 }
 
 export interface BudgetStatusInfo {

@@ -3,38 +3,85 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, Mail, ArrowRight, HelpCircle, X, ShieldAlert, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/Card";
-import { AlertBanner } from "@/components/ui/AlertBanner";
+import {
+  Lock,
+  Mail,
+  User,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Check,
+  AlertCircle,
+  X,
+  ShieldAlert,
+  CheckCircle2,
+  Sparkles,
+} from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [shakeError, setShakeError] = useState(false);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleStatus, setGoogleStatus] = useState<{
     configured: boolean;
     redirectUri: string;
   } | null>(null);
 
+  // 1. Session Restoration on App Startup (Electron Persistent Login)
   useEffect(() => {
-    // Check initial query parameters
+    if (typeof window !== "undefined" && (window as any).desktopAPI?.getPersistedSession) {
+      (window as any).desktopAPI
+        .getPersistedSession()
+        .then(async (token: string | null) => {
+          if (token && typeof token === "string" && token.length > 20) {
+            setIsRestoringSession(true);
+            try {
+              const res = await fetch("/api/auth/session/restore", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token }),
+              });
+              const data = await res.json();
+              if (res.ok && data.success) {
+                router.replace("/");
+                return;
+              } else {
+                // If token expired or revoked, purge it cleanly
+                await (window as any).desktopAPI?.clearPersistedSession();
+              }
+            } catch {
+              // Network fallback: remain on login screen
+            } finally {
+              setIsRestoringSession(false);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [router]);
+
+  // 2. Query param handling and Google OAuth status check
+  useEffect(() => {
     const err = searchParams.get("error");
     if (err === "google_not_configured") {
-      setErrorMessage("Google OAuth is not configured yet. Please sign in with Email & Password or add Google credentials.");
+      setErrorMessage("Google OAuth is not configured yet. Please sign in with your email and password.");
       setShowGoogleModal(true);
     } else if (err === "google_auth_failed") {
-      setErrorMessage("Google authentication could not be completed. Please try again or sign in with your email and password below.");
+      setErrorMessage("Google authentication could not be completed. Please try again or sign in with your password.");
     } else if (err === "google_access_denied") {
       setErrorMessage("Google sign-in was cancelled. You can sign in with your email and password below.");
     } else if (err === "google_invalid_state") {
-      setErrorMessage("Google sign-in session expired or security verification failed. Please try signing in again.");
+      setErrorMessage("Google sign-in session expired. Please try signing in again.");
     }
 
     const paramEmail = searchParams.get("email");
@@ -42,8 +89,8 @@ function LoginForm() {
       setEmail(paramEmail);
     }
 
-    // Check Google OAuth status
-    fetch("/api/auth/google/status")
+    const isDesktopApp = typeof window !== "undefined" && Boolean((window as any).desktopAPI?.isDesktop);
+    fetch(`/api/auth/google/status${isDesktopApp ? "?isDesktop=true" : ""}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.data) {
@@ -56,10 +103,16 @@ function LoginForm() {
       .catch(() => {
         setGoogleStatus({
           configured: false,
-          redirectUri: "http://localhost:3000/api/auth/google/callback",
+          redirectUri: "http://127.0.0.1:32100/api/auth/google/callback",
         });
       });
   }, [searchParams]);
+
+  const triggerError = (msg: string) => {
+    setErrorMessage(msg);
+    setShakeError(true);
+    setTimeout(() => setShakeError(false), 500);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,283 +120,457 @@ function LoginForm() {
 
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
-      setErrorMessage("Please enter your email address.");
+      triggerError("Please enter your username or email address.");
       return;
     }
     if (!password) {
-      setErrorMessage("Please enter your password.");
+      triggerError("Please enter your password.");
       return;
     }
 
     setIsLoading(true);
 
-    let res: Response;
     try {
-      res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmedEmail, password }),
+        body: JSON.stringify({ email: trimmedEmail, password, rememberMe }),
       });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        triggerError(data?.error?.message || "Invalid credentials. Please verify your email and password.");
+        setPassword("");
+        setIsLoading(false);
+        return;
+      }
+
+      // Persist session token via Electron safeStorage if on Desktop
+      if (rememberMe && data?.data?.token && typeof window !== "undefined" && (window as any).desktopAPI?.persistSession) {
+        try {
+          await (window as any).desktopAPI.persistSession(data.data.token);
+        } catch (err) {
+          console.warn("[Desktop Persistence Warning]:", err);
+        }
+      }
+
+      router.push("/");
+      router.refresh();
     } catch {
-      setErrorMessage("Network error occurred. Unable to contact authentication server. Please check your connection.");
+      triggerError("Network connection error. Unable to contact authentication service.");
       setIsLoading(false);
-      return;
     }
-
-    let data: any = null;
-    try {
-      data = await res.json();
-    } catch {
-      setErrorMessage(`Server error (${res.status}). The service returned an invalid response. Please try again.`);
-      setIsLoading(false);
-      return;
-    }
-
-    if (!res.ok || !data?.success) {
-      setErrorMessage(data?.error?.message || "Invalid credentials. Please try again.");
-      setPassword("");
-      setIsLoading(false);
-      return;
-    }
-
-    // Successful login
-    router.push("/");
-    router.refresh();
   };
 
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setIsGoogleLoading(true);
 
-    try {
-      const res = await fetch("/api/auth/google/status");
-      const data = await res.json();
+    const isDesktopApp = typeof window !== "undefined" && Boolean((window as any).desktopAPI?.isDesktop);
 
-      if (data.data?.configured) {
-        window.location.href = "/api/auth/google";
-      } else {
+    try {
+      const statusRes = await fetch(`/api/auth/google/status${isDesktopApp ? "?isDesktop=true" : ""}`);
+      const statusData = await statusRes.json();
+
+      if (!statusData.data?.configured) {
         setIsGoogleLoading(false);
         setShowGoogleModal(true);
+        return;
+      }
+
+      if (isDesktopApp) {
+        const authRes = await fetch("/api/auth/google?isDesktop=true&format=json");
+        const authData = await authRes.json();
+
+        if (!authData.success || !authData.authUrl || !authData.csrf) {
+          setIsGoogleLoading(false);
+          triggerError("Failed to initiate Desktop Google sign-in. Please try again.");
+          return;
+        }
+
+        if (typeof (window as any).desktopAPI?.openExternal === "function") {
+          (window as any).desktopAPI.openExternal(authData.authUrl);
+        } else {
+          window.open(authData.authUrl, "_blank");
+        }
+
+        const csrfToken = authData.csrf;
+        const maxPollAttempts = 90;
+        let attempts = 0;
+
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          if (attempts > maxPollAttempts) {
+            clearInterval(pollInterval);
+            setIsGoogleLoading(false);
+            triggerError("Google authentication timed out. Please try again.");
+            return;
+          }
+
+          try {
+            const handshakeRes = await fetch(
+              `/api/auth/google/desktop-handshake?state=${encodeURIComponent(csrfToken)}`
+            );
+            const handshakeData = await handshakeRes.json();
+
+            if (handshakeData.success) {
+              clearInterval(pollInterval);
+              setIsGoogleLoading(false);
+
+              // Persist Google desktop session token if provided
+              if (handshakeData.sessionToken && (window as any).desktopAPI?.persistSession) {
+                try {
+                  await (window as any).desktopAPI.persistSession(handshakeData.sessionToken);
+                } catch {}
+              }
+
+              if (typeof (window as any).desktopAPI?.focusWindow === "function") {
+                (window as any).desktopAPI.focusWindow();
+              }
+
+              router.push("/");
+              router.refresh();
+            }
+          } catch {
+            // Wait for loopback completion
+          }
+        }, 1000);
+      } else {
+        window.location.href = "/api/auth/google";
       }
     } catch {
       setIsGoogleLoading(false);
-      setShowGoogleModal(true);
+      triggerError("Network error initializing Google authentication.");
     }
   };
 
-  return (
-    <>
-      <Card className="border-slate-200 dark:border-slate-800 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-xl">Sign in to your account</CardTitle>
-          <CardDescription>
-            Access your personal command center and private records securely
-          </CardDescription>
-        </CardHeader>
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF7F2] p-6 text-center animate-fade-in">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#063B2E] to-[#0B4A3A] flex items-center justify-center text-[#C5A059] shadow-xl shadow-[#063B2E]/20 mb-5 animate-pulse">
+          <ShieldCheck className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-semibold text-[#141E19] tracking-tight mb-1">
+          Restoring your session...
+        </h2>
+        <p className="text-xs text-[#738077]">
+          Verifying security credentials and central entitlements
+        </p>
+      </div>
+    );
+  }
 
-        <CardContent className="space-y-4">
+  return (
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#FAF7F2] overflow-x-hidden">
+      {/* ========================================================
+          LEFT: Warm Ivory / Cream Authentication Form Panel
+          ======================================================== */}
+      <div className="w-full lg:w-[48%] xl:w-[46%] min-h-screen flex flex-col justify-between px-8 sm:px-16 lg:px-20 py-10 sm:py-14 bg-[#FAF7F2] z-10">
+        {/* Subtle Top Brand Header (Mobile & Small screens) */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-[#063B2E] flex items-center justify-center text-[#C5A059] shadow-xs">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-semibold tracking-[0.2em] text-[#063B2E] uppercase">
+              Smart Life Manager
+            </span>
+          </div>
+        </div>
+
+        {/* Main Form Center Area */}
+        <div className="my-auto max-w-sm w-full mx-auto py-8">
+          {/* Heading with Elegant Short Gold Underline */}
+          <div className="mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#141E19]">
+              Sign in
+            </h1>
+            <div className="w-10 h-[3px] bg-[#C5A059] rounded-full mt-3" />
+          </div>
+
+          {/* Error Banner with Subtle Shake */}
           {errorMessage && (
-            <AlertBanner
-              type="error"
-              title="Authentication Notice"
-              message={errorMessage}
-            />
+            <div
+              className={`mb-6 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 ${
+                shakeError ? "animate-shake" : "animate-fade-in"
+              }`}
+            >
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1 leading-relaxed">{errorMessage}</div>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="text-rose-400 hover:text-rose-700"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
 
-          {/* Method A: Continue with Google */}
-          <div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Username or Email Input */}
+            <div className="space-y-1.5 group">
+              <div className="relative border-b-2 border-[#DDD6CB] focus-within:border-[#C5A059] transition-colors pb-1">
+                <input
+                  id="email"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  placeholder="Username or email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-transparent pr-8 py-2 text-sm text-[#141E19] placeholder-[#8A968E] outline-none transition-all font-normal"
+                />
+                <User className="w-4 h-4 text-[#8A968E] group-focus-within:text-[#C5A059] absolute right-1 top-2.5 pointer-events-none transition-colors" />
+              </div>
+            </div>
+
+            {/* Password Input */}
+            <div className="space-y-1.5 group">
+              <div className="relative border-b-2 border-[#DDD6CB] focus-within:border-[#C5A059] transition-colors pb-1">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-transparent pr-8 py-2 text-sm text-[#141E19] placeholder-[#8A968E] outline-none transition-all font-normal"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-1 top-2 text-[#8A968E] hover:text-[#141E19] group-focus-within:text-[#C5A059] transition-colors p-0.5"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Keep me signed in & Forgot password row */}
+            <div className="flex items-center justify-between pt-1 text-xs">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none text-[#2B3830]">
+                <div
+                  onClick={() => setRememberMe(!rememberMe)}
+                  className={`w-4 h-4 rounded flex items-center justify-center transition-all ${
+                    rememberMe
+                      ? "bg-[#063B2E] text-white shadow-xs"
+                      : "border border-[#C5BDB0] bg-white hover:border-[#063B2E]"
+                  }`}
+                >
+                  {rememberMe && <Check className="w-3 h-3 stroke-[3]" />}
+                </div>
+                <span className="font-medium">Keep me signed in</span>
+              </label>
+
+              <Link
+                href="/forgot-password"
+                className="text-[#9E7B44] hover:text-[#7A5E33] font-medium underline underline-offset-4 decoration-[#C5A059]/60 hover:decoration-[#C5A059] transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Primary Pill Button: Sign In */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3.5 px-6 rounded-full bg-[#063B2E] hover:bg-[#0B4A3A] active:scale-[0.99] text-white font-medium text-sm tracking-wide shadow-md shadow-[#063B2E]/20 hover:shadow-lg hover:shadow-[#063B2E]/25 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isLoading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <span>Sign in</span>
+                )}
+              </button>
+            </div>
+
+            {/* Alternative: Sign In with Google */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#E5DFD5]" />
+              </div>
+              <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+                <span className="bg-[#FAF7F2] px-3 text-[#8A968E]">Or continue with</span>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading || isLoading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-60"
+              className="w-full py-3 px-4 rounded-full border border-[#DDD6CB] hover:border-[#C5A059] bg-white/70 hover:bg-white text-[#141E19] text-xs font-medium transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-2.5 disabled:opacity-60 cursor-pointer"
             >
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
-                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.87c2.26-2.09 3.67-5.17 3.67-9.15z"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 />
                 <path
                   fill="#34A853"
-                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3.05c-1.08.72-2.45 1.16-4.06 1.16-3.13 0-5.78-2.11-6.73-4.96H1.24v3.15C3.26 21.36 7.35 24 12 24z"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
                 />
                 <path
                   fill="#FBBC05"
-                  d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.24C.45 8.18 0 9.95 0 12s.45 3.82 1.24 5.39l4.03-3.15z"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
                 />
                 <path
                   fill="#EA4335"
-                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.24 6.61l4.03 3.15c.95-2.85 3.6-4.96 6.73-4.96z"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              <span>{isGoogleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
+              <span>{isGoogleLoading ? "Connecting to Google..." : "Sign in with Google"}</span>
             </button>
-            {googleStatus && !googleStatus.configured && (
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 text-center">
-                Requires OAuth credentials in .env &bull;{" "}
-                <button
-                  type="button"
-                  onClick={() => setShowGoogleModal(true)}
-                  className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
-                >
-                  <HelpCircle className="w-3 h-3" /> Setup guide
-                </button>
-              </p>
-            )}
-          </div>
-
-          {/* Divider */}
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200 dark:border-slate-800" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white dark:bg-slate-900 px-3 text-slate-500 font-medium">
-                Or continue with email
-              </span>
-            </div>
-          </div>
-
-          {/* Method B: Email & Password Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <Input
-                label="Email address"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-8 pointer-events-none" />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label
-                  htmlFor="password"
-                  className="block text-xs font-medium text-slate-700 dark:text-slate-300"
-                >
-                  Password
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-brand-600 dark:text-brand-400 hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                />
-                <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Button
-                type="submit"
-                className="w-full gap-2"
-                isLoading={isLoading}
-              >
-                <span>Sign In with Email</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
           </form>
-        </CardContent>
 
-        <CardFooter className="justify-center">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/register"
-              className="font-medium text-brand-600 dark:text-brand-400 hover:underline"
-            >
-              Create free account
-            </Link>
+          {/* Switch to Create Account */}
+          <div className="mt-8 text-center">
+            <p className="text-xs text-[#738077]">
+              New to Smart Life Manager?{" "}
+              <Link
+                href="/register"
+                className="font-semibold text-[#141E19] hover:text-[#063B2E] underline underline-offset-4 decoration-[#C5A059] transition-colors"
+              >
+                Create an account
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        {/* Footer Note */}
+        <div className="text-center lg:text-left text-[11px] text-[#8A968E]">
+          <span>Protected by OS-backed hardware encryption & data isolation.</span>
+        </div>
+      </div>
+
+      {/* ========================================================
+          RIGHT: Deep Emerald Premium Branded Area
+          ======================================================== */}
+      <div className="w-full lg:w-[52%] xl:w-[54%] min-h-[420px] lg:min-h-screen relative flex flex-col justify-center px-10 sm:px-16 lg:px-20 py-16 bg-gradient-to-br from-[#063B2E] via-[#084335] to-[#03231B] text-white overflow-hidden shadow-2xl">
+        {/* Curved Divider Line Overlay along Left Edge */}
+        <div className="hidden lg:block absolute inset-y-0 left-0 w-24 pointer-events-none">
+          <svg
+            className="h-full w-full"
+            viewBox="0 0 100 1000"
+            preserveAspectRatio="none"
+            fill="none"
+          >
+            <path
+              d="M 0 0 C 45 250, 60 750, 0 1000"
+              stroke="rgba(197, 160, 89, 0.35)"
+              strokeWidth="1.5"
+            />
+          </svg>
+        </div>
+
+        {/* Ambient Radial Halo Background Accent */}
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-[#C5A059]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 left-10 w-72 h-72 bg-[#0B4A3A]/40 rounded-full blur-2xl pointer-events-none" />
+
+        {/* Branded Editorial Content */}
+        <div className="relative z-10 max-w-md space-y-6">
+          {/* Tracking Uppercase Brand */}
+          <div className="flex items-center gap-2 text-[#C5A059]">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-bold tracking-[0.28em] uppercase">
+              Smart Life Manager
+            </span>
+          </div>
+
+          {/* Hero Editorial Headline */}
+          <div className="space-y-1">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-light tracking-tight text-white/95 leading-[1.08]">
+              Welcome
+            </h2>
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-serif italic font-normal text-amber-100/95 leading-[1.08]">
+              back.
+            </h2>
+          </div>
+
+          {/* Supporting Text */}
+          <p className="text-sm sm:text-base text-emerald-100/80 font-normal leading-relaxed pt-2">
+            Your life, your documents, and your family are exactly where you left them.
           </p>
-        </CardFooter>
-      </Card>
+
+          {/* Refined Feature Pill Highlights */}
+          <div className="pt-6 flex flex-wrap gap-2 text-[11px] text-emerald-200/70 font-medium">
+            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-xs">
+              Private Local Database
+            </span>
+            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-xs">
+              Automated Expiry Alerts
+            </span>
+            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-xs">
+              Offline Ready
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Google OAuth Configuration Guidance Modal */}
       {showGoogleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
+          <div className="relative w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-2xl p-6 space-y-4 text-stone-900">
             <button
               onClick={() => setShowGoogleModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+              className="absolute top-4 right-4 text-stone-400 hover:text-stone-700 p-1"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
                 <ShieldAlert className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base font-bold text-stone-900">
                   Google OAuth Configuration Required
                 </h3>
-                <p className="text-xs text-slate-500">Setup instructions for administrator</p>
+                <p className="text-xs text-stone-500">Setup instructions for administrator</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Google Sign-In is awaiting OAuth 2.0 Web Client credentials. To activate it in your deployment:
-            </p>
+            {typeof window !== "undefined" && Boolean((window as any).desktopAPI?.isDesktop) ? (
+              <div className="space-y-3">
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  The Windows Desktop application utilizes Google&apos;s standard <strong>Desktop App (RFC 8252 Loopback)</strong> flow.
+                </p>
+                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs space-y-1 text-stone-600">
+                  <p className="font-semibold text-stone-800">1. In Google Cloud Console:</p>
+                  <p>Create OAuth Client ID with Application type: <strong>Desktop app</strong>.</p>
+                  <p className="font-semibold text-stone-800 pt-1">2. In Admin Portal:</p>
+                  <p>Visit <strong>Admin Portal &gt; System &amp; AI Settings</strong> to save your Client ID.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Google Sign-In is awaiting OAuth 2.0 Web Client credentials in your environment.
+                </p>
+              </div>
+            )}
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-              <p className="font-semibold text-slate-700 dark:text-slate-300">
-                1. Set environment variables in your <code className="text-brand-600">.env</code>:
-              </p>
-              <pre className="p-2 rounded bg-slate-100 dark:bg-slate-900 text-[11px] font-mono text-slate-800 dark:text-slate-200 overflow-x-auto">
-{`GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="your-client-secret"`}
-              </pre>
-              <p className="font-semibold text-slate-700 dark:text-slate-300">
-                2. In Google Cloud Console (APIs & Services &gt; Credentials):
-              </p>
-              <ul className="list-disc list-inside text-slate-600 dark:text-slate-400 space-y-1 pl-1">
-                <li>
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Authorized JavaScript origin:</span>{" "}
-                  <code className="text-brand-600">http://localhost:3000</code>
-                </li>
-                <li>
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Authorized redirect URI:</span>{" "}
-                  <code className="text-brand-600">
-                    {googleStatus?.redirectUri || "http://localhost:3000/api/auth/google/callback"}
-                  </code>
-                </li>
-              </ul>
-            </div>
-
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-start gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <p className="text-emerald-700 dark:text-emerald-300">
-                <strong>Email + Password authentication is 100% operational.</strong> You can log in or register immediately using the form below.
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <p className="text-emerald-800">
+                <strong>Email + Password authentication is 100% operational.</strong> You can sign in immediately using your credentials.
               </p>
             </div>
 
-            <Button
+            <button
               onClick={() => setShowGoogleModal(false)}
-              className="w-full text-xs"
+              className="w-full py-2.5 rounded-full bg-[#063B2E] text-white text-xs font-medium hover:bg-[#0B4A3A] transition-colors"
             >
-              Continue with Email & Password
-            </Button>
+              Continue with Email &amp; Password
+            </button>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -351,7 +578,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[400px] flex items-center justify-center text-slate-400 text-sm">
+        <div className="min-h-screen flex items-center justify-center bg-[#FAF7F2] text-[#738077] text-sm">
           Loading sign in...
         </div>
       }

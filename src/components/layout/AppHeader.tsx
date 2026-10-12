@@ -7,6 +7,7 @@ import { SessionUser } from "@/types";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalSearchModal } from "@/components/search/GlobalSearchModal";
 import { NotificationBellDropdown } from "@/components/notifications/NotificationBellDropdown";
+import { performCustomerLogout } from "@/lib/auth/client-logout";
 
 interface AppHeaderProps {
   user: SessionUser;
@@ -37,30 +38,25 @@ export function AppHeader({ user, title }: AppHeaderProps) {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/login";
-    } catch (err) {
-      console.error("Logout error", err);
-    }
+    await performCustomerLogout();
   };
 
   return (
     <>
-      <header className="sticky top-0 z-20 h-16 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
+      <header className="sticky top-0 z-20 h-16 glass-panel border-b border-theme-border px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 shadow-xs">
         {/* Mobile Brand / Page Title */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link href="/" className="lg:hidden flex items-center gap-1.5 sm:gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shadow-xs shrink-0">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl btn-theme-accent flex items-center justify-center text-white border border-white/20 shadow-theme-glow shrink-0">
+              <ShieldCheck className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate max-w-[80px] sm:max-w-none">
+            <span className="font-semibold text-xs sm:text-sm text-theme-text-primary truncate max-w-[80px] sm:max-w-none">
               Smart Life
             </span>
           </Link>
 
           {title && (
-            <h1 className="hidden lg:block text-base font-semibold text-slate-900 dark:text-white">
+            <h1 className="hidden lg:block text-base font-semibold text-theme-text-primary tracking-tight">
               {title}
             </h1>
           )}
@@ -71,14 +67,14 @@ export function AppHeader({ user, title }: AppHeaderProps) {
           <button
             type="button"
             onClick={() => setIsSearchOpen(true)}
-            className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-xs flex items-center justify-between transition-colors shadow-2xs group"
+            className="w-full h-9 px-3 rounded-xl border border-theme-border glass-subtle hover:border-theme-accent/40 text-theme-text-muted hover:text-theme-text-primary text-xs flex items-center justify-between transition-all shadow-2xs group"
           >
             <div className="flex items-center gap-2">
-              <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-500 transition-colors" />
+              <Search className="w-3.5 h-3.5 text-theme-text-muted group-hover:text-theme-accent transition-colors" />
               <span className="hidden sm:inline">Search anything across records...</span>
               <span className="sm:hidden">Search...</span>
             </div>
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 shadow-2xs">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md glass-subtle border border-theme-border text-theme-text-muted shadow-2xs">
               <span>Ctrl</span> K
             </kbd>
           </button>
@@ -95,25 +91,25 @@ export function AppHeader({ user, title }: AppHeaderProps) {
               onClick={handleLogout}
               title="Log out"
               aria-label="Log out"
-              className="p-2 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 text-theme-text-muted hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-theme-glass-subtle transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+          <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-theme-border">
             <Link
               href="/premium"
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 hover:bg-brand-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-theme-accent bg-theme-accent-subtle border border-theme-accent/30 hover:bg-theme-accent-subtle hover:border-theme-accent/50 transition-all shadow-2xs group active:scale-[0.98]"
               title="View Subscription Plans"
             >
-              <Sparkles className="w-3 h-3 text-brand-500" />
+              <Sparkles className="w-3 h-3 text-theme-accent group-hover:rotate-12 transition-transform" />
               <span>Plans</span>
             </Link>
-            <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+            <span className="text-xs font-medium text-theme-text-secondary">
               {user.displayName || user.email}
             </span>
-            <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-950/70 text-brand-700 dark:text-brand-300">
+            <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-theme-accent-subtle text-theme-accent border border-theme-accent/30">
               {user.role}
             </span>
           </div>

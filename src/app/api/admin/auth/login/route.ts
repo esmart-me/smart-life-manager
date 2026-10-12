@@ -3,9 +3,28 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { createSessionToken, setAdminSessionCookie, isAuthorizedOwnerAdmin } from "@/lib/auth/session";
 import { ensureSuperAdmin } from "@/lib/auth/admin-init";
+import { authLimiter, getClientIp } from "@/lib/security/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const rateCheck = authLimiter.isLimited(`admin-login:${ip}`, 5, 15 * 60 * 1000);
+    if (rateCheck.limited) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "Too many failed administrator login attempts. Please try again later.",
+          },
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateCheck.retryAfterSec) },
+        }
+      );
+    }
+
     // Ensure default admin exists
     await ensureSuperAdmin();
 
@@ -25,6 +44,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
+      authLimiter.check(`admin-login:${ip}`, 5, 15 * 60 * 1000);
       return NextResponse.json(
         { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid administrator credentials." } },
         { status: 401 }
@@ -33,6 +53,7 @@ export async function POST(req: NextRequest) {
 
     // Strict Master/Owner Administrator authorization check
     if (!isAuthorizedOwnerAdmin(user.email, user.role)) {
+      authLimiter.check(`admin-login:${ip}`, 5, 15 * 60 * 1000);
       return NextResponse.json(
         {
           success: false,
@@ -48,11 +69,15 @@ export async function POST(req: NextRequest) {
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
+      authLimiter.check(`admin-login:${ip}`, 5, 15 * 60 * 1000);
       return NextResponse.json(
         { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid administrator credentials." } },
         { status: 401 }
       );
     }
+
+    // Reset rate limiter on successful authentication
+    authLimiter.reset(`admin-login:${ip}`);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -69,7 +94,6 @@ export async function POST(req: NextRequest) {
     await setAdminSessionCookie(token);
 
     // Audit log
-    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
     await prisma.adminAuditLog.create({
       data: {
         adminId: user.id,
@@ -78,7 +102,7 @@ export async function POST(req: NextRequest) {
         targetType: "auth",
         targetId: user.id,
         details: JSON.stringify({ email: user.email, role: user.role }),
-        ipAddress: typeof ip === "string" ? ip.split(",")[0].trim() : "127.0.0.1",
+        ipAddress: ip,
       },
     });
 

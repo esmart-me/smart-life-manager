@@ -4,6 +4,14 @@ import { simulateUserPlanChange, getUserPlanSummary } from "@/lib/plans/plan-ser
 import { PlanTier } from "@/lib/plans/constants";
 
 export async function POST(req: Request) {
+  // Subscription simulation is strictly prohibited in production environments
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { success: false, error: { code: "NOT_FOUND", message: "Endpoint not found." } },
+      { status: 404 }
+    );
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json(

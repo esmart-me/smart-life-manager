@@ -2,9 +2,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { createSessionToken, setSessionCookie } from "@/lib/auth/session";
+import { authLimiter, getClientIp } from "@/lib/security/rate-limit";
 
 export async function POST(request: Request) {
   try {
+    const ip = getClientIp(request);
+    const rateCheck = authLimiter.check(`register:${ip}`, 5, 15 * 60 * 1000);
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "Too many accounts created from this location. Please try again later.",
+          },
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateCheck.retryAfterSec) },
+        }
+      );
+    }
+
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return NextResponse.json(
@@ -134,11 +153,25 @@ export async function POST(request: Request) {
 
     await setSessionCookie(token);
 
+    // Asynchronously ensure central profile in central Supabase if configured
+    try {
+      const { isSupabaseServerAdminConfigured } = await import("@/lib/supabase/config");
+      if (isSupabaseServerAdminConfigured()) {
+        const { ensureCentralCustomerProfile } = await import("@/lib/supabase/server");
+        ensureCentralCustomerProfile({
+          customerId: user.id,
+          email: user.email,
+          fullName: finalDisplayName,
+        }).catch(() => {});
+      }
+    } catch {}
+
     return NextResponse.json(
       {
         success: true,
         message: "Your account was created successfully.",
         data: {
+          token,
           user: {
             id: user.id,
             email: user.email,

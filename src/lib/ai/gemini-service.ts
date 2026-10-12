@@ -6,14 +6,24 @@ import { GoogleGenAI } from "@google/genai";
 import { buildCustomerContext } from "./context-builder";
 import { buildSystemPromptWithContext } from "./prompts";
 import { AiStatusResponse } from "./types";
+import { getPersistentEnvPath, loadEnvFileIntoProcess } from "../config/system-config-service";
 
 /**
  * Retrieves the AI API key from server environment variables only.
  * Checks GEMINI_API_KEY first, then AI_API_KEY.
+ * Falls back to loading persistent configuration from AppData if present.
  * Never exposed via NEXT_PUBLIC_.
  */
 export function getAiApiKey(): string | null {
-  const key = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || "";
+  let key = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || "";
+  if (!key.trim()) {
+    try {
+      const userEnvPath = getPersistentEnvPath();
+      loadEnvFileIntoProcess(userEnvPath, false);
+      key = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || "";
+    } catch {}
+  }
+
   const trimmed = key.trim();
   if (
     !trimmed ||
@@ -54,7 +64,7 @@ export function getAiConfigStatus(): AiStatusResponse {
     model,
     message: configured
       ? `AI Assistant is operational using ${model}.`
-      : "AI Assistant is awaiting configuration. Please set GEMINI_API_KEY in your server environment.",
+      : "Smart AI is currently unavailable. Please check the Gemini API configuration or internet connection.",
   };
 }
 
@@ -239,8 +249,18 @@ export async function generateAiResponse({
     }
   }
 
+  let replyText = response?.text?.trim();
+  if (!replyText && response?.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (typeof (part as any)?.text === "string" && (part as any).text.trim()) {
+        replyText = (part as any).text.trim();
+        break;
+      }
+    }
+  }
+
   const reply =
-    response?.text?.trim() ||
+    replyText ||
     "I reviewed your records, but could not produce a detailed answer. Please try rephrasing your question.";
 
   return {

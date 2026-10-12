@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { DEFAULT_PLAN_DEFINITIONS, PlanTier } from "./constants";
+import { getAuthoritativeEntitlement } from "@/lib/entitlement/entitlement-service";
 
 export interface PlanLimitStatus {
   current: number;
@@ -16,6 +17,8 @@ export interface UserPlanSummary {
   billingInterval: string;
   isPremiumOrFamily: boolean;
   isFamily: boolean;
+  expiresAt?: string | null;
+  daysRemaining?: number | null;
   limits: {
     documents: PlanLimitStatus;
     vehicles: PlanLimitStatus;
@@ -142,11 +145,12 @@ export async function getUserSubscription(userId: string) {
 
 /**
  * Fetches the user's current plan, resource usage, and active limits.
+ * Central Supabase is strictly authoritative for subscription entitlements.
  */
 export async function getUserPlanSummary(userId: string): Promise<UserPlanSummary> {
   await ensureDefaultPlanConfigs();
 
-  const [sub, docCount, vehCount, familyMembersCount] = await Promise.all([
+  const [sub, docCount, vehCount, familyMembersCount, entitlement] = await Promise.all([
     getUserSubscription(userId),
     prisma.document.count({ where: { userId } }),
     prisma.vehicle.count({ where: { userId } }),
@@ -155,9 +159,15 @@ export async function getUserPlanSummary(userId: string): Promise<UserPlanSummar
         familyGroup: { ownerId: userId },
       },
     }),
+    getAuthoritativeEntitlement(userId),
   ]);
 
-  const planKey = (sub.plan || "free") as PlanTier;
+  // Central Supabase is strictly authoritative for plan and entitlement
+  const isPremiumActive = entitlement.premiumEnabled && entitlement.status === "active";
+  const planKey = (isPremiumActive
+    ? (sub.plan === "family" || (entitlement.plan as string) === "family" ? "family" : "premium")
+    : "free") as PlanTier;
+
   const config =
     (await prisma.planConfig.findUnique({ where: { plan: planKey } })) ||
     DEFAULT_PLAN_DEFINITIONS[planKey] ||
@@ -176,24 +186,26 @@ export async function getUserPlanSummary(userId: string): Promise<UserPlanSummar
 
   return {
     plan: planKey,
-    planName: config.name,
-    status: sub.status,
+    planName: isPremiumActive ? config.name : (entitlement.status === "expired" ? "Expired (Basic Tier)" : "Free Starter"),
+    status: entitlement.status,
     billingInterval: sub.billingInterval,
-    isPremiumOrFamily: planKey === "premium" || planKey === "family",
-    isFamily: planKey === "family",
+    isPremiumOrFamily: isPremiumActive,
+    isFamily: isPremiumActive && planKey === "family",
+    expiresAt: entitlement.expiresAt,
+    daysRemaining: entitlement.daysRemaining,
     limits: {
-      documents: buildLimit(docCount, config.maxDocuments),
-      vehicles: buildLimit(vehCount, config.maxVehicles),
-      familyMembers: buildLimit(familyMembersCount, config.maxFamilyMembers),
+      documents: buildLimit(docCount, isPremiumActive ? -1 : config.maxDocuments),
+      vehicles: buildLimit(vehCount, isPremiumActive ? -1 : config.maxVehicles),
+      familyMembers: buildLimit(familyMembersCount, isPremiumActive ? config.maxFamilyMembers : 0),
     },
     features: {
-      allowExports: config.allowExports,
-      allowAdvancedReports: config.allowAdvancedReports,
-      allowSubscriptionTracking: config.allowSubscriptionTracking,
-      allowCloudBackup: config.allowCloudBackup,
-      allowCustomRecurrence: config.allowCustomRecurrence,
-      allowAiAssistant: config.allowAiAssistant,
-      allowMultiDeviceSync: config.allowMultiDeviceSync,
+      allowExports: isPremiumActive && config.allowExports,
+      allowAdvancedReports: isPremiumActive && config.allowAdvancedReports,
+      allowSubscriptionTracking: isPremiumActive && config.allowSubscriptionTracking,
+      allowCloudBackup: isPremiumActive && config.allowCloudBackup,
+      allowCustomRecurrence: isPremiumActive && config.allowCustomRecurrence,
+      allowAiAssistant: isPremiumActive && config.allowAiAssistant,
+      allowMultiDeviceSync: isPremiumActive && config.allowMultiDeviceSync,
     },
     pricing: {
       monthlyPrice: config.monthlyPrice,
@@ -234,7 +246,7 @@ export async function checkFeatureAccess(
   options?: { strict?: boolean }
 ): Promise<FeatureAccessResult> {
   const summary = await getUserPlanSummary(userId);
-  const strict = options?.strict ?? false;
+  const strict = options?.strict ?? true;
 
   switch (feature) {
     case "create_document": {

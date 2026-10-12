@@ -31,53 +31,99 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const now = new Date();
+    const newPaidCount = (payment.paidTenureMonths ?? 0) + 1;
+    const isLoanClosed = Boolean(
+      payment.totalTenureMonths && newPaidCount >= payment.totalTenureMonths
+    );
 
-    // 1. Mark current payment as paid
+    // 1. Mark current payment as paid and increment tenure
     const updatedPayment = await prisma.payment.update({
       where: { id },
       data: {
         isPaid: true,
         paidAt: now,
+        paidTenureMonths: newPaidCount,
       },
     });
 
     let nextPayment = null;
 
-    // 2. If recurring, generate next occurrence correctly!
-    if (payment.isRecurring && payment.frequency && payment.frequency !== "none") {
-      const nextDueDate = calculateNextOccurrence(payment.dueDate, payment.frequency);
+    // 2. If recurring and loan not completed/closed, generate next occurrence correctly!
+    if (
+      payment.isRecurring &&
+      payment.frequency &&
+      payment.frequency !== "none" &&
+      !isLoanClosed
+    ) {
+      const anchorDay = payment.dueDate.getDate();
+      const nextDueDate = calculateNextOccurrence(payment.dueDate, payment.frequency, anchorDay);
 
-      nextPayment = await prisma.payment.create({
-        data: {
-          userId: user.id,
-          title: payment.title,
-          payee: payment.payee,
-          amount: payment.amount,
-          currency: payment.currency,
-          dueDate: nextDueDate,
-          category: payment.category,
-          isRecurring: true,
-          frequency: payment.frequency,
-          notes: payment.notes,
-          isPaid: false,
-          paidAt: null,
-        },
-      });
+      // Check if next due date exceeds loan closing date cutoff
+      const isPastClosingDate = payment.loanClosingDate && nextDueDate > payment.loanClosingDate;
+
+      if (!isPastClosingDate) {
+        // Duplicate Prevention Check: verify next recurring payment doesn't already exist
+        const existingNext = await prisma.payment.findFirst({
+          where: {
+            userId: user.id,
+            title: payment.title,
+            dueDate: nextDueDate,
+            isPaid: false,
+          },
+        });
+
+        if (!existingNext) {
+          nextPayment = await prisma.payment.create({
+            data: {
+              userId: user.id,
+              title: payment.title,
+              payee: payment.payee,
+              amount: payment.amount,
+              currency: payment.currency,
+              dueDate: nextDueDate,
+              category: payment.category,
+              isRecurring: true,
+              frequency: payment.frequency,
+              notes: payment.notes,
+              isPaid: false,
+              paidAt: null,
+              // Propagate Loan/EMI metadata
+              loanCategory: payment.loanCategory,
+              bankName: payment.bankName,
+              accountRef: payment.accountRef,
+              principalAmount: payment.principalAmount,
+              interestRate: payment.interestRate,
+              totalTenureMonths: payment.totalTenureMonths,
+              paidTenureMonths: newPaidCount,
+              loanStartDate: payment.loanStartDate,
+              loanClosingDate: payment.loanClosingDate,
+              reminderLeadDays: payment.reminderLeadDays,
+            },
+          });
+        } else {
+          nextPayment = existingNext;
+        }
+      }
     }
 
-    const currentStatus = calculatePaymentStatus(updatedPayment.dueDate, true);
+    const currentStatus = isLoanClosed ? "Closed" : calculatePaymentStatus(updatedPayment.dueDate, true);
     const nextStatus = nextPayment
       ? calculatePaymentStatus(nextPayment.dueDate, false)
       : null;
 
+    const message = isLoanClosed
+      ? `Final EMI paid! Loan "${payment.title}" is now fully completed.`
+      : nextPayment
+      ? "Payment marked as paid and next recurring cycle scheduled"
+      : "Payment marked as paid";
+
     return NextResponse.json({
       success: true,
-      message: nextPayment
-        ? "Payment marked as paid and next recurring cycle scheduled"
-        : "Payment marked as paid",
+      message,
       data: {
         payment: { ...updatedPayment, status: currentStatus },
         nextPayment: nextPayment ? { ...nextPayment, status: nextStatus } : null,
+        isLoanClosed,
       },
     });
   } catch (error) {

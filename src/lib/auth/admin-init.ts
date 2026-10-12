@@ -34,11 +34,18 @@ export async function ensureSuperAdmin(): Promise<{ id: string; email: string }>
     return { id: existing.id, email: existing.email };
   }
 
-  // Determine initial admin password from environment or secure setup
-  const initialPassword =
-    process.env.ADMIN_INITIAL_PASSWORD || "Admin2026!";
+  // Require explicit ADMIN_INITIAL_PASSWORD from environment; no hardcoded default password allowed
+  const initialPassword = process.env.ADMIN_INITIAL_PASSWORD;
+  if (!initialPassword || initialPassword.trim().length < 8) {
+    console.error(
+      "[AdminInit Error]: Cannot initialize administrator. ADMIN_INITIAL_PASSWORD environment variable must be set with at least 8 characters."
+    );
+    throw new Error(
+      "ADMIN_INITIAL_PASSWORD must be configured in environment variables to bootstrap the administrator account."
+    );
+  }
 
-  const passwordHash = await bcrypt.hash(initialPassword, 12);
+  const passwordHash = await bcrypt.hash(initialPassword.trim(), 12);
   const admin = await prisma.user.create({
     data: {
       email: INITIAL_ADMIN_EMAIL.toLowerCase().trim(),

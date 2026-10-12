@@ -30,7 +30,10 @@ export async function GET(request: Request) {
     const now = new Date();
 
     const paymentsWithStatus = rawPayments.map((p) => {
-      const status = calculatePaymentStatus(p.dueDate, p.isPaid, now);
+      const isLoanClosed =
+        p.category === "Loan / EMI" &&
+        Boolean(p.totalTenureMonths && p.paidTenureMonths && p.paidTenureMonths >= p.totalTenureMonths);
+      const status = calculatePaymentStatus(p.dueDate, p.isPaid, now, isLoanClosed);
       return {
         ...p,
         status,
@@ -88,7 +91,28 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { title, payee, amount, currency, dueDate, category, frequency, isRecurring, notes, isPaid } = body;
+    const {
+      title,
+      payee,
+      amount,
+      currency,
+      dueDate,
+      category,
+      frequency,
+      isRecurring,
+      notes,
+      isPaid,
+      loanCategory,
+      bankName,
+      accountRef,
+      principalAmount,
+      interestRate,
+      totalTenureMonths,
+      paidTenureMonths,
+      loanStartDate,
+      loanClosingDate,
+      reminderLeadDays,
+    } = body;
 
     if (!title || typeof title !== "string" || title.trim() === "") {
       return NextResponse.json(
@@ -137,6 +161,16 @@ export async function POST(request: Request) {
         notes: notes ? String(notes).trim() : null,
         isPaid: Boolean(isPaid),
         paidAt: isPaid ? new Date() : null,
+        loanCategory: loanCategory ? String(loanCategory).trim() : null,
+        bankName: bankName ? String(bankName).trim() : null,
+        accountRef: accountRef ? String(accountRef).trim() : null,
+        principalAmount: principalAmount !== undefined && principalAmount !== null && principalAmount !== "" ? Number(principalAmount) : null,
+        interestRate: interestRate !== undefined && interestRate !== null && interestRate !== "" ? Number(interestRate) : null,
+        totalTenureMonths: totalTenureMonths !== undefined && totalTenureMonths !== null && totalTenureMonths !== "" ? Number(totalTenureMonths) : null,
+        paidTenureMonths: paidTenureMonths !== undefined && paidTenureMonths !== null && paidTenureMonths !== "" ? Number(paidTenureMonths) : 0,
+        loanStartDate: loanStartDate ? new Date(loanStartDate) : null,
+        loanClosingDate: loanClosingDate ? new Date(loanClosingDate) : null,
+        reminderLeadDays: reminderLeadDays ? Number(reminderLeadDays) : 3,
       },
     });
 

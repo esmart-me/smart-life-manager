@@ -27,10 +27,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           type={type}
           className={cn(
-            "w-full px-3 py-2 text-base sm:text-sm min-h-[42px] rounded-lg border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500",
+            "w-full px-3.5 py-2 text-base sm:text-sm min-h-[42px] rounded-xl border glass-input text-theme-text-primary placeholder:text-theme-text-muted transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-accent/25 focus-visible:border-theme-accent",
             error
-              ? "border-rose-300 dark:border-rose-700 focus:ring-rose-500 focus:border-rose-500"
-              : "border-slate-300 dark:border-slate-700",
+              ? "border-rose-400 dark:border-rose-700/80 focus-visible:ring-rose-500/25 focus-visible:border-rose-500"
+              : "border-theme-border hover:border-theme-accent/40",
             className
           )}
           {...props}

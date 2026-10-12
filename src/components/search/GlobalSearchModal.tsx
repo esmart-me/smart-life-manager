@@ -104,9 +104,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[80vh]"
+        className="w-full max-w-2xl glass-elevated rounded-2xl shadow-2xl border border-slate-200/90 dark:border-white/10 overflow-hidden flex flex-col max-h-[80vh] animate-modal-pop"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}

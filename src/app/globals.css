@@ -2,98 +2,469 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light dark;
+/* ============================================================
+   SMART LIFE MANAGER — GLOBAL CUSTOM THEME SYSTEM
+   Single Source of Truth for Liquid Glass & Custom Theme Tokens
+   ============================================================ */
+
+:root,
+[data-theme="liquid-clear"] {
+  color-scheme: dark;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Theme Canvas */
+  --theme-bg: #090D14;
+  --theme-bg-gradient: 
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.10) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 45%),
+    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 60%),
+    radial-gradient(at 80% 50%, rgba(255, 255, 255, 0.03) 0px, transparent 50%);
+
+  /* Liquid Glass Surfaces */
+  --theme-surface: rgba(13, 19, 28, 0.72);
+  --theme-glass-panel: rgba(13, 19, 28, 0.78);
+  --theme-glass-card: rgba(17, 24, 38, 0.68);
+  --theme-glass-subtle: rgba(255, 255, 255, 0.05);
+  --theme-glass-input: rgba(17, 24, 38, 0.65);
+  --theme-glass-elevated: rgba(11, 16, 25, 0.92);
+
+  /* Borders & Specular Sheen */
+  --theme-glass-border: rgba(255, 255, 255, 0.10);
+  --theme-glass-highlight: rgba(255, 255, 255, 0.16);
+
+  /* Accent (Restrained Emerald) */
+  --theme-accent: #10B981;
+  --theme-accent-hover: #34D399;
+  --theme-accent-gradient: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  --theme-accent-subtle: rgba(16, 185, 129, 0.12);
+  --theme-accent-border: rgba(16, 185, 129, 0.35);
+  --theme-accent-glow: rgba(16, 185, 129, 0.30);
+  --theme-accent-contrast: #FFFFFF;
+  --theme-focus-ring: #10B981;
+
+  /* Typography */
+  --theme-text-primary: #F8FAFB;
+  --theme-text-secondary: #94A3B8;
+  --theme-text-muted: #64748B;
 }
 
+/* THEME B: Emerald & White (Light, Crisp, High Readability) */
+[data-theme="emerald-white"] {
+  color-scheme: light;
+  --theme-bg: #F8FAFC;
+  --theme-bg-gradient: 
+    radial-gradient(at 0% 0%, rgba(5, 150, 105, 0.06) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(248, 250, 252, 0.85) 0px, transparent 100%);
+
+  --theme-surface: rgba(255, 255, 255, 0.88);
+  --theme-glass-panel: rgba(255, 255, 255, 0.86);
+  --theme-glass-card: rgba(255, 255, 255, 0.92);
+  --theme-glass-subtle: rgba(241, 245, 249, 0.75);
+  --theme-glass-input: rgba(255, 255, 255, 0.95);
+  --theme-glass-elevated: rgba(255, 255, 255, 0.97);
+
+  --theme-glass-border: rgba(226, 232, 240, 0.88);
+  --theme-glass-highlight: rgba(255, 255, 255, 1);
+
+  --theme-accent: #059669;
+  --theme-accent-hover: #047857;
+  --theme-accent-gradient: linear-gradient(135deg, #047857 0%, #059669 100%);
+  --theme-accent-subtle: rgba(5, 150, 105, 0.10);
+  --theme-accent-border: rgba(5, 150, 105, 0.35);
+  --theme-accent-glow: rgba(5, 150, 105, 0.20);
+  --theme-accent-contrast: #FFFFFF;
+  --theme-focus-ring: #059669;
+
+  --theme-text-primary: #0F172A;
+  --theme-text-secondary: #475569;
+  --theme-text-muted: #94A3B8;
+}
+
+/* THEME C: Emerald & Black (Deep Charcoal & Emerald Green Sheen) */
+[data-theme="emerald-black"] {
+  color-scheme: dark;
+  --theme-bg: #06090B;
+  --theme-bg-gradient: 
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.16) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(5, 150, 105, 0.10) 0px, transparent 45%),
+    radial-gradient(at 50% 100%, rgba(6, 78, 59, 0.14) 0px, transparent 60%),
+    radial-gradient(at 80% 50%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+
+  --theme-surface: rgba(11, 16, 19, 0.78);
+  --theme-glass-panel: rgba(9, 14, 17, 0.84);
+  --theme-glass-card: rgba(14, 21, 25, 0.74);
+  --theme-glass-subtle: rgba(16, 185, 129, 0.06);
+  --theme-glass-input: rgba(14, 21, 25, 0.70);
+  --theme-glass-elevated: rgba(8, 12, 15, 0.94);
+
+  --theme-glass-border: rgba(16, 185, 129, 0.22);
+  --theme-glass-highlight: rgba(255, 255, 255, 0.12);
+
+  --theme-accent: #10B981;
+  --theme-accent-hover: #34D399;
+  --theme-accent-gradient: linear-gradient(135deg, #065F46 0%, #10B981 100%);
+  --theme-accent-subtle: rgba(16, 185, 129, 0.14);
+  --theme-accent-border: rgba(16, 185, 129, 0.40);
+  --theme-accent-glow: rgba(16, 185, 129, 0.35);
+  --theme-accent-contrast: #FFFFFF;
+  --theme-focus-ring: #10B981;
+
+  --theme-text-primary: #F9FAFB;
+  --theme-text-secondary: #9CA3AF;
+  --theme-text-muted: #6B7280;
+}
+
+/* THEME D: Crimson & Black (Deep Charcoal & Controlled Crimson Glow) */
+[data-theme="crimson-black"] {
+  color-scheme: dark;
+  --theme-bg: #080A0C;
+  --theme-bg-gradient: 
+    radial-gradient(at 0% 0%, rgba(225, 29, 72, 0.14) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(159, 18, 57, 0.10) 0px, transparent 45%),
+    radial-gradient(at 50% 100%, rgba(136, 19, 55, 0.12) 0px, transparent 60%),
+    radial-gradient(at 80% 50%, rgba(225, 29, 72, 0.05) 0px, transparent 50%);
+
+  --theme-surface: rgba(14, 16, 21, 0.78);
+  --theme-glass-panel: rgba(12, 14, 18, 0.84);
+  --theme-glass-card: rgba(18, 20, 26, 0.74);
+  --theme-glass-subtle: rgba(225, 29, 72, 0.06);
+  --theme-glass-input: rgba(18, 20, 26, 0.70);
+  --theme-glass-elevated: rgba(10, 12, 16, 0.94);
+
+  --theme-glass-border: rgba(225, 29, 72, 0.24);
+  --theme-glass-highlight: rgba(255, 255, 255, 0.12);
+
+  --theme-accent: #E11D48;
+  --theme-accent-hover: #FB7185;
+  --theme-accent-gradient: linear-gradient(135deg, #9F1239 0%, #E11D48 100%);
+  --theme-accent-subtle: rgba(225, 29, 72, 0.14);
+  --theme-accent-border: rgba(225, 29, 72, 0.40);
+  --theme-accent-glow: rgba(225, 29, 72, 0.35);
+  --theme-accent-contrast: #FFFFFF;
+  --theme-focus-ring: #E11D48;
+
+  --theme-text-primary: #F9FAFB;
+  --theme-text-secondary: #9CA3AF;
+  --theme-text-muted: #6B7280;
+}
+
+/* ============================================================
+   Base Canvas Setup & Atmospheric Mesh
+   ============================================================ */
 body {
   font-family: var(--font-sans);
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: var(--theme-bg);
+  background-image: var(--theme-bg-gradient);
+  background-attachment: fixed;
+  color: var(--theme-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.dark body {
-  background-color: #090d16;
-  color: #f1f5f9;
-}
-
 /* Accessible focus outline */
 *:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--theme-focus-ring);
   outline-offset: 2px;
 }
 
 /* Custom subtle scrollbar */
 @supports (scrollbar-color: auto) {
   * {
-    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+    scrollbar-color: var(--theme-accent) transparent;
     scrollbar-width: thin;
   }
 }
 
 /* ============================================================
-   Premium Glassmorphism Utility Classes
-   Subtle transparency, backdrop-filter blur, soft borders, and deep shadows
+   TRUE LIQUID GLASS UI SYSTEM
+   Dual-layer backdrop blur, fine borders, soft specular highlights
    ============================================================ */
 
+/* 1. Floating Glass Panel (Header, Sidebar, Navigation Dock) */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--theme-glass-panel);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--theme-glass-border);
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.35);
+}
+
+/* 2. Primary Frosted Glass Card */
+.glass-card {
+  background: var(--theme-glass-card);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid var(--theme-glass-border);
+  box-shadow: 
+    0 1px 2px 0 rgba(0, 0, 0, 0.2),
+    0 8px 26px -4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 var(--theme-glass-highlight);
+}
+
+/* 3. Interactive Glass Card with Tactile Press Feedback */
+.glass-card-hover {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 200ms ease;
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--theme-accent-border);
+  box-shadow: 
+    0 14px 34px -4px rgba(0, 0, 0, 0.45),
+    0 0 18px -4px var(--theme-accent-glow),
+    inset 0 1px 0 0 var(--theme-glass-highlight);
+}
+
+.glass-card-hover:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* 4. Subtle Frosted Glass (Tags, filters, chips, nested layers) */
+.glass-subtle {
+  background: var(--theme-glass-subtle);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.85);
+  border: 1px solid var(--theme-glass-border);
 }
 
-.dark .glass-panel {
-  background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-}
-
-.dark .glass-card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-}
-
-.glass-subtle {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-}
-
-.dark .glass-subtle {
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
+/* 5. Glass Input / Select / Textarea */
 .glass-input {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(203, 213, 225, 0.85);
+  background: var(--theme-glass-input);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--theme-glass-border);
+  color: var(--theme-text-primary);
+  transition: all 180ms ease;
 }
 
-.dark .glass-input {
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.glass-input:focus {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px var(--theme-accent-glow);
+  outline: none;
 }
 
+/* 6. Elevated Glass Dropdown / Dialog Modal Panel */
+.glass-elevated {
+  background: var(--theme-glass-elevated);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  border: 1px solid var(--theme-glass-border);
+  box-shadow: 
+    0 24px 50px -12px rgba(0, 0, 0, 0.65),
+    0 10px 20px -4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 0 var(--theme-glass-highlight);
+}
+
+/* 7. KPI / Stat Card with Subtle Ambient Sheen */
+.glass-stat-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--theme-glass-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--theme-glass-border);
+  box-shadow: 
+    0 1px 2px 0 rgba(0, 0, 0, 0.2),
+    0 6px 20px -4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 0 var(--theme-glass-highlight);
+}
+
+/* ============================================================
+   THEME-AWARE DYNAMIC UTILITY CLASSES
+   ============================================================ */
+.btn-theme-accent {
+  background: var(--theme-accent-gradient);
+  color: var(--theme-accent-contrast);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px -2px var(--theme-accent-glow);
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-theme-accent:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 22px -2px var(--theme-accent-glow);
+  transform: translateY(-1px);
+}
+
+.btn-theme-accent:active {
+  transform: scale(0.98);
+}
+
+.text-theme-accent {
+  color: var(--theme-accent);
+}
+
+.text-theme-gradient {
+  background: var(--theme-accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.border-theme-accent {
+  border-color: var(--theme-accent);
+}
+
+.bg-theme-accent-subtle {
+  background: var(--theme-accent-subtle);
+}
+
+.shadow-theme-glow {
+  box-shadow: 0 0 25px -4px var(--theme-accent-glow);
+}
+
+/* Fallback for legacy class references */
+.glass-gold {
+  background: var(--theme-accent-subtle);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--theme-accent-border);
+  box-shadow: 0 4px 20px -2px var(--theme-accent-glow);
+}
+
+.glass-emerald {
+  background: var(--theme-accent-subtle);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--theme-accent-border);
+  box-shadow: 0 4px 20px -2px var(--theme-accent-glow);
+}
+
+.text-gold-gradient,
+.text-emerald-gradient {
+  background: var(--theme-accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ============================================================
+   FUNCTIONAL MOTION & ANIMATIONS
+   Tested, smooth transitions with lifecycle hooks
+   ============================================================ */
+
+/* 1. Page & Route Entrance */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: pageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 2. Staggered Card Entrance */
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-card-enter {
+  animation: cardEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+
+/* 3. Modal / Dialog Pop Entrance */
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-pop {
+  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 4. Dropdown Menu Slide */
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-dropdown-slide {
+  animation: dropdownSlide 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 5. Smooth Fade In */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* 6. Success Checkmark Pop */
+@keyframes checkmarkPop {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-checkmark-pop {
+  animation: checkmarkPop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 7. Subtle Ambient Glow Pulse */
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.92; transform: scale(1.02); }
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 3s ease-in-out infinite;
+}
+
+/* 8. Smooth Brief Transition during Theme Change */
+.theme-transitioning,
+.theme-transitioning * {
+  transition: 
+    background-color 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 180ms ease !important;
+}
+
+/* ============================================================
+   ACCESSIBILITY: PREFERS-REDUCED-MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

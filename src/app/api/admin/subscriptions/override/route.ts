@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { mutateCentralSubscription } from "@/lib/supabase/server";
+import { saveCachedEntitlement } from "@/lib/entitlement/entitlement-service";
 
 export async function POST(req: NextRequest) {
   const admin = await getAdminUser();
@@ -48,6 +50,30 @@ export async function POST(req: NextRequest) {
         status,
         billingInterval: "monthly",
       },
+    });
+
+    // Sync to Central Supabase if configured
+    await mutateCentralSubscription({
+      customerId: userId,
+      plan: plan === "free" ? "basic" : "premium",
+      status: status === "active" ? "active" : status === "expired" ? "expired" : "canceled",
+      expiresAt: updatedSub.currentPeriodEnd ? updatedSub.currentPeriodEnd.toISOString() : null,
+      adminEmail: admin.email,
+      reason: reason.trim(),
+    }).catch((e) => console.warn("[Central Supabase] Sync override error:", e));
+
+    // Update local authoritative entitlement cache
+    saveCachedEntitlement(userId, {
+      plan: plan === "free" ? "basic" : "premium",
+      status: status === "active" ? "active" : status === "expired" ? "expired" : "canceled",
+      startsAt: new Date().toISOString(),
+      expiresAt: updatedSub.currentPeriodEnd ? updatedSub.currentPeriodEnd.toISOString() : null,
+      premiumEnabled: (plan === "premium" || plan === "family") && status === "active",
+      accountStatus: "active",
+      appAccessAllowed: true,
+      lastVerifiedAt: new Date().toISOString(),
+      serverTime: new Date().toISOString(),
+      daysRemaining: status === "active" && plan !== "free" ? 30 : 0,
     });
 
     // Write audit log entry for this override

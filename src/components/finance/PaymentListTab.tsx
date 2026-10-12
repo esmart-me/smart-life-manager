@@ -33,6 +33,16 @@ export interface PaymentItem {
   isPaid: boolean;
   paidAt?: string | Date | null;
   status: PaymentStatus;
+  loanCategory?: string | null;
+  bankName?: string | null;
+  accountRef?: string | null;
+  principalAmount?: number | null;
+  interestRate?: number | null;
+  totalTenureMonths?: number | null;
+  paidTenureMonths?: number | null;
+  loanStartDate?: string | Date | null;
+  loanClosingDate?: string | Date | null;
+  reminderLeadDays?: number | null;
 }
 
 interface PaymentListTabProps {
@@ -62,6 +72,7 @@ export function PaymentListTab({
   const dueTodayCount = payments.filter((p) => p.status === "Due Today").length;
   const overdueCount = payments.filter((p) => p.status === "Overdue").length;
   const paidCount = payments.filter((p) => p.status === "Paid").length;
+  const closedCount = payments.filter((p) => p.status === "Closed").length;
 
   // Filter payments
   const filtered = payments.filter((p) => {
@@ -70,6 +81,7 @@ export function PaymentListTab({
     if (activeFilter === "due_today" && p.status !== "Due Today") return false;
     if (activeFilter === "overdue" && p.status !== "Overdue") return false;
     if (activeFilter === "paid" && p.status !== "Paid") return false;
+    if (activeFilter === "closed" && p.status !== "Closed") return false;
 
     // Category filter
     if (categoryFilter !== "all" && p.category.toLowerCase() !== categoryFilter.toLowerCase()) {
@@ -83,7 +95,9 @@ export function PaymentListTab({
       const matchPayee = p.payee?.toLowerCase().includes(q) || false;
       const matchNotes = p.notes?.toLowerCase().includes(q) || false;
       const matchCat = p.category.toLowerCase().includes(q);
-      if (!matchTitle && !matchPayee && !matchNotes && !matchCat) return false;
+      const matchBank = p.bankName?.toLowerCase().includes(q) || false;
+      const matchLoan = p.loanCategory?.toLowerCase().includes(q) || false;
+      if (!matchTitle && !matchPayee && !matchNotes && !matchCat && !matchBank && !matchLoan) return false;
     }
 
     return true;
@@ -221,6 +235,18 @@ export function PaymentListTab({
           >
             Paid ({paidCount})
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter("closed")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+              activeFilter === "closed"
+                ? "bg-slate-700 text-white dark:bg-slate-600"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+            }`}
+          >
+            Closed ({closedCount})
+          </button>
         </div>
 
         <Button
@@ -240,7 +266,7 @@ export function PaymentListTab({
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search payments by name, payee, category..."
+            placeholder="Search payments by name, payee, bank, category..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -298,7 +324,14 @@ export function PaymentListTab({
               </span>
             );
 
-            if (payment.status === "Paid") {
+            if (payment.status === "Closed") {
+              statusBadge = (
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                  <span>Closed</span>
+                </span>
+              );
+            } else if (payment.status === "Paid") {
               statusBadge = (
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
@@ -320,6 +353,12 @@ export function PaymentListTab({
                 </span>
               );
             }
+
+            const isLoan = payment.category === "Loan / EMI" || Boolean(payment.totalTenureMonths);
+            const tenureProgress =
+              payment.totalTenureMonths && payment.totalTenureMonths > 0
+                ? Math.min(100, Math.round(((payment.paidTenureMonths || 0) / payment.totalTenureMonths) * 100))
+                : 0;
 
             return (
               <div
@@ -345,6 +384,36 @@ export function PaymentListTab({
                     {formatCurrency(payment.amount, payment.currency)}
                   </p>
                 </div>
+
+                {/* Loan / EMI specific overview */}
+                {isLoan && (
+                  <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      <span>{payment.bankName || "Loan Account"}{payment.accountRef ? ` •••• ${payment.accountRef}` : ""}</span>
+                      {payment.totalTenureMonths ? (
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          EMI {payment.paidTenureMonths || 0} / {payment.totalTenureMonths}
+                        </span>
+                      ) : null}
+                    </div>
+                    {payment.totalTenureMonths ? (
+                      <div className="space-y-1">
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${tenureProgress}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>
+                            {Math.max(0, payment.totalTenureMonths - (payment.paidTenureMonths || 0))} EMIs left
+                          </span>
+                          {payment.interestRate ? <span>{payment.interestRate}% p.a.</span> : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-300">
@@ -388,6 +457,16 @@ export function PaymentListTab({
                           isRecurring: payment.isRecurring,
                           notes: payment.notes,
                           isPaid: payment.isPaid,
+                          loanCategory: payment.loanCategory,
+                          bankName: payment.bankName,
+                          accountRef: payment.accountRef,
+                          principalAmount: payment.principalAmount,
+                          interestRate: payment.interestRate,
+                          totalTenureMonths: payment.totalTenureMonths,
+                          paidTenureMonths: payment.paidTenureMonths,
+                          loanStartDate: payment.loanStartDate ? String(payment.loanStartDate) : undefined,
+                          loanClosingDate: payment.loanClosingDate ? String(payment.loanClosingDate) : undefined,
+                          reminderLeadDays: payment.reminderLeadDays,
                         })
                       }
                       className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -405,7 +484,12 @@ export function PaymentListTab({
                     </button>
                   </div>
 
-                  {!payment.isPaid ? (
+                  {payment.status === "Closed" ? (
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Loan Completed</span>
+                    </span>
+                  ) : !payment.isPaid ? (
                     <Button
                       type="button"
                       size="sm"

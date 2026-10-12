@@ -22,16 +22,16 @@ const PROTECTED_PREFIXES = [
 // Public auth paths (redirect to dashboard if already logged in)
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
-function getPayloadFromSessionToken(token?: string): { role: string | null; email: string | null } {
-  if (!token) return { role: null, email: null };
+function getPayloadFromSessionToken(token?: string): { role: string | null; email: string | null; exp: number | null } {
+  if (!token) return { role: null, email: null, exp: null };
   try {
     const parts = token.split(".");
-    if (parts.length < 2) return { role: null, email: null };
+    if (parts.length < 2) return { role: null, email: null, exp: null };
     const jsonStr = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
     const payload = JSON.parse(jsonStr);
-    return { role: payload.role || null, email: payload.email || null };
+    return { role: payload.role || null, email: payload.email || null, exp: typeof payload.exp === "number" ? payload.exp : null };
   } catch {
-    return { role: null, email: null };
+    return { role: null, email: null, exp: null };
   }
 }
 
@@ -95,8 +95,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 4. Customer Auth Route: If logged in with customer session, redirect to customer dashboard
+  // 4. Customer Auth Route: If logged in with valid customer session, redirect to customer dashboard
   if (isAuthRoute && sessionCookie) {
+    const hasFromRedirect = request.nextUrl.searchParams.has("from");
+    const { exp, email } = getPayloadFromSessionToken(sessionCookie);
+    const isExpired = typeof exp === "number" ? exp * 1000 < Date.now() : false;
+    const isMalformed = !email;
+
+    // If request was redirected from a protected route or token is invalid/expired,
+    // do NOT redirect back to dashboard — clear stale cookie and allow auth page to render safely.
+    if (hasFromRedirect || isExpired || isMalformed) {
+      const response = NextResponse.next();
+      response.cookies.delete(APP_CONFIG.cookieName);
+      return response;
+    }
+
     return NextResponse.redirect(new URL("/", request.url));
   }
 

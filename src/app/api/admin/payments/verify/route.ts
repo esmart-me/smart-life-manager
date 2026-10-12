@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { mutateCentralSubscription, recordCentralPayment } from "@/lib/supabase/server";
+import { saveCachedEntitlement } from "@/lib/entitlement/entitlement-service";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +113,40 @@ export async function POST(req: Request) {
           cancelAtPeriodEnd: false,
           cancelledAt: null,
         },
+      });
+
+      // Synchronize to Central Supabase if configured
+      await mutateCentralSubscription({
+        customerId: transaction.userId,
+        plan: "premium",
+        status: "active",
+        expiresAt: periodEnd.toISOString(),
+        startsAt: now.toISOString(),
+        adminEmail: admin.email,
+        reason: `Manual payment verification for transaction ${transaction.transactionId}`,
+      }).catch((e) => console.warn("[Central Supabase] Sync payment verification sub error:", e));
+
+      await recordCentralPayment({
+        customerId: transaction.userId,
+        amount: transaction.amount,
+        currency: transaction.currency,
+        status: "completed",
+        referenceId: transaction.utrNumber || transaction.transactionId,
+        provider: transaction.paymentProvider,
+      }).catch((e) => console.warn("[Central Supabase] Sync payment record error:", e));
+
+      // Update local authoritative entitlement cache so customer client immediately reflects activation
+      saveCachedEntitlement(transaction.userId, {
+        plan: "premium",
+        status: "active",
+        startsAt: now.toISOString(),
+        expiresAt: periodEnd.toISOString(),
+        premiumEnabled: true,
+        accountStatus: "active",
+        appAccessAllowed: true,
+        lastVerifiedAt: now.toISOString(),
+        serverTime: now.toISOString(),
+        daysRemaining: Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))),
       });
 
       // 3. Dispatch high-priority customer notification

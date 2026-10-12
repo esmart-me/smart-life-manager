@@ -68,12 +68,11 @@ export default async function AdminDashboardPage() {
   const [
     totalCustomers,
     newCustomers,
+    suspendedAccounts,
     userSubs,
     billingStats,
     recentAudits,
     recentCustomers,
-    totalAiConversations,
-    totalAiMessages,
   ] = await Promise.all([
     // Customers (non-admin accounts)
     safeQuery(
@@ -94,6 +93,17 @@ export default async function AdminDashboardPage() {
       0,
       "newCustomers"
     ),
+    // Suspended customer accounts
+    safeQuery(
+      prisma.user.count({
+        where: {
+          role: { in: ["user", "customer"] },
+          status: "suspended",
+        },
+      }),
+      0,
+      "suspendedAccounts"
+    ),
     // Subscriptions breakdown (strictly customer accounts, excluding admin test records)
     safeQuery(
       prisma.userSubscription.findMany({
@@ -106,6 +116,7 @@ export default async function AdminDashboardPage() {
           billingInterval: true,
           amount: true,
           currency: true,
+          currentPeriodEnd: true,
         },
       }),
       [],
@@ -150,9 +161,6 @@ export default async function AdminDashboardPage() {
       [],
       "recentCustomers"
     ),
-    // AI metrics
-    safeQuery(prisma.aiConversation.count(), 0, "totalAiConversations"),
-    safeQuery(prisma.aiMessage.count(), 0, "totalAiMessages"),
   ]);
 
   const aiStatus = getAiConfigStatus();
@@ -161,23 +169,31 @@ export default async function AdminDashboardPage() {
   // Compute subscription numbers from real customer database records
   let freeUsers = 0;
   let premiumUsers = 0;
-  let familyUsers = 0;
+  let expiredPremiumUsers = 0;
   let payingCustomers = 0;
   let cancelledSubscriptions = 0;
   let actualMRR = 0;
+  const nowMs = Date.now();
 
   for (const sub of userSubs) {
-    if (sub.plan === "free") freeUsers++;
-    else if (sub.plan === "premium") premiumUsers++;
-    else if (sub.plan === "family") familyUsers++;
+    const isPrem = sub.plan === "premium" || sub.plan === "pro" || sub.plan === "family";
+    const isExpired = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).getTime() < nowMs : false;
 
-    if (sub.status === "active" && (sub.plan === "premium" || sub.plan === "family")) {
-      payingCustomers++;
-      const monthlyAmount =
-        sub.billingInterval === "yearly" ? sub.amount / 12 : sub.amount;
-      actualMRR += monthlyAmount || 0;
-    } else if (sub.status === "cancelled") {
-      cancelledSubscriptions++;
+    if (isPrem) {
+      if (isExpired || sub.status === "expired") {
+        expiredPremiumUsers++;
+        freeUsers++;
+      } else if (sub.status === "active") {
+        premiumUsers++;
+        payingCustomers++;
+        const monthlyAmount =
+          sub.billingInterval === "yearly" ? sub.amount / 12 : sub.amount;
+        actualMRR += monthlyAmount || 0;
+      } else if (sub.status === "cancelled") {
+        cancelledSubscriptions++;
+      }
+    } else {
+      freeUsers++;
     }
   }
 
@@ -187,8 +203,8 @@ export default async function AdminDashboardPage() {
     freeUsers += totalCustomers - usersWithSubs;
   }
 
-  // Active customers: registered customers who have not cancelled their tier
-  const activeCustomers = Math.max(0, totalCustomers - cancelledSubscriptions);
+  // Active customers: registered customers who are not suspended
+  const activeCustomers = Math.max(0, totalCustomers - suspendedAccounts);
 
   // Compute payment transactions from real customer database rows
   let successfulPayments = 0;
@@ -221,34 +237,42 @@ export default async function AdminDashboardPage() {
     {
       title: "Active Customers",
       value: activeCustomers.toLocaleString(),
-      subtext: `${payingCustomers} paying, ${freeUsers} free`,
+      subtext: `${payingCustomers} paying, ${freeUsers} basic`,
       icon: Activity,
       color: "text-emerald-400",
       bg: "bg-emerald-950/40 border-emerald-800/60",
     },
     {
-      title: "Free Users",
+      title: "Basic Customers",
       value: freeUsers.toLocaleString(),
-      subtext: "Free Starter tier accounts",
+      subtext: "Free Starter / Basic tier",
       icon: Sparkles,
       color: "text-slate-400",
       bg: "bg-slate-900 border-slate-800",
     },
     {
-      title: "Premium Users",
+      title: "Premium Customers",
       value: premiumUsers.toLocaleString(),
-      subtext: "Life Pro Premium active accounts",
+      subtext: "Active paid subscriptions",
       icon: CreditCard,
       color: "text-indigo-400",
       bg: "bg-indigo-950/40 border-indigo-800/60",
     },
     {
-      title: "Family Users",
-      value: familyUsers.toLocaleString(),
-      subtext: "Family Circle Plus active accounts",
-      icon: Users,
-      color: "text-purple-400",
-      bg: "bg-purple-950/40 border-purple-800/60",
+      title: "Expired Premium",
+      value: expiredPremiumUsers.toLocaleString(),
+      subtext: "Reverted to Basic tier",
+      icon: Clock,
+      color: "text-amber-400",
+      bg: "bg-amber-950/40 border-amber-800/60",
+    },
+    {
+      title: "Suspended Accounts",
+      value: suspendedAccounts.toLocaleString(),
+      subtext: suspendedAccounts === 0 ? "Zero suspensions" : "Access blocked",
+      icon: XCircle,
+      color: suspendedAccounts > 0 ? "text-rose-400" : "text-slate-400",
+      bg: suspendedAccounts > 0 ? "bg-rose-950/40 border-rose-800/60" : "bg-slate-900 border-slate-800",
     },
     {
       title: "Monthly Recurring (MRR)",
@@ -345,13 +369,13 @@ export default async function AdminDashboardPage() {
           return (
             <div
               key={idx}
-              className={`p-5 rounded-2xl border ${kpi.bg} flex flex-col justify-between space-y-3 transition-all`}
+              className={`p-5 rounded-2xl border glass-card glass-card-hover ${kpi.bg} flex flex-col justify-between space-y-3 transition-all`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-400">
                   {kpi.title}
                 </span>
-                <div className={`p-2 rounded-xl bg-slate-950/50 ${kpi.color}`}>
+                <div className={`p-2 rounded-xl bg-slate-950/60 border border-white/[0.06] shadow-2xs ${kpi.color}`}>
                   <Icon className="w-4 h-4" />
                 </div>
               </div>
@@ -370,7 +394,8 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* AI Assistant Architecture & Status (Phase 11 Foundation) */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+      <div className="p-6 rounded-2xl glass-card border border-white/[0.08] space-y-4">
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white shadow-md shadow-brand-500/20">
@@ -418,15 +443,15 @@ export default async function AdminDashboardPage() {
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
-            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Conversations</span>
-            <p className="font-bold text-white text-sm">{totalAiConversations}</p>
-            <p className="text-[11px] text-slate-400">Total active chat threads</p>
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Security Boundary</span>
+            <p className="font-bold text-white text-sm">Server-Side</p>
+            <p className="text-[11px] text-slate-400">Zero client key exposure</p>
           </div>
 
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
-            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Messages Grounded</span>
-            <p className="font-bold text-white text-sm">{totalAiMessages}</p>
-            <p className="text-[11px] text-slate-400">Total processed AI turns</p>
+            <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">AI Capabilities</span>
+            <p className="font-bold text-white text-sm">Chat &amp; OCR</p>
+            <p className="text-[11px] text-slate-400">Smart categorization engine</p>
           </div>
         </div>
 
@@ -450,8 +475,8 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Payment Gateway & Billing Infrastructure Status */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="p-6 rounded-2xl glass-card border border-white/[0.08] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/20">
               <CreditCard className="w-5 h-5" />
@@ -485,13 +510,13 @@ export default async function AdminDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/[0.06] space-y-1">
             <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Gateway Provider</span>
             <p className="font-bold text-slate-200 text-sm">Stripe</p>
             <p className="text-[11px] text-slate-400">Official Stripe Node SDK</p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/[0.06] space-y-1">
             <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Runtime Mode</span>
             <p className={`font-bold text-sm ${isStripeConfigured ? "text-emerald-400" : "text-amber-400"}`}>
               {isStripeConfigured ? "Production Live" : "Sandbox Simulation"}
@@ -501,16 +526,16 @@ export default async function AdminDashboardPage() {
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/[0.06] space-y-1">
             <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Active Paid Subscriptions</span>
             <p className="font-bold text-white text-sm">{payingCustomers}</p>
             <p className="text-[11px] text-slate-400">Real paying customers</p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/[0.06] space-y-1">
             <span className="text-slate-500 uppercase tracking-wider text-[10px] font-semibold">Collected Revenue</span>
             <p className="font-bold text-white text-sm">${totalRevenueUSD.toFixed(2)}</p>
-            <p className="text-[11px] text-slate-400">Total customer receipts</p>
+            <p className="text-[11px] text-slate-400">Collected billing payments</p>
           </div>
         </div>
       </div>
@@ -518,7 +543,7 @@ export default async function AdminDashboardPage() {
       {/* Two Column Layout: Recent Customers & Recent Audit Trail */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Customers */}
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="p-5 rounded-2xl glass-card border border-white/[0.08] space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Users className="w-4 h-4 text-indigo-400" />
@@ -532,7 +557,7 @@ export default async function AdminDashboardPage() {
             </Link>
           </div>
 
-          <div className="divide-y divide-slate-800/80">
+          <div className="divide-y divide-white/[0.06]">
             {recentCustomers.length === 0 ? (
               <div className="py-8 text-center space-y-1">
                 <p className="text-xs font-semibold text-slate-300">
@@ -576,11 +601,11 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Recent Audit Log */}
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="p-5 rounded-2xl glass-card border border-white/[0.08] space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Admin Activity & Security Audit</span>
+              <span>Admin Activity &amp; Security Audit</span>
             </h3>
             <Link
               href="/admin/audit"
@@ -589,6 +614,7 @@ export default async function AdminDashboardPage() {
               Full Log &rarr;
             </Link>
           </div>
+
 
           <div className="space-y-2.5">
             {recentAudits.length === 0 ? (

@@ -48,6 +48,11 @@ model User {
   billingTransactions BillingTransaction[]
   aiConversations   AiConversation[]
   pushSubscriptions PushSubscription[]
+  creditCards       CreditCard[]
+  creditCardEmis    CreditCardEmi[]
+  investments       Investment[]
+  healthProfiles    HealthProfile[]
+  healthInsurances  HealthInsurance[]
 
   @@index([email])
 }
@@ -235,6 +240,17 @@ model Payment {
   isRecurring Boolean   @default(false)
   frequency   String?   // "weekly" | "monthly" | "quarterly" | "yearly"
   notes       String?
+  // Loan / EMI Tracking Fields (Phase 1)
+  loanCategory       String?   // "home" | "car" | "personal" | "education" | "business" | "credit_card" | "other"
+  bankName           String?
+  accountRef         String?   // e.g. last 4 digits of loan/EMI account
+  principalAmount    Float?
+  interestRate       Float?
+  totalTenureMonths  Int?
+  paidTenureMonths   Int?      @default(0)
+  loanStartDate      DateTime?
+  loanClosingDate    DateTime?
+  reminderLeadDays   Int?      @default(3)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -305,6 +321,11 @@ model Vehicle {
   insuranceExpiry    DateTime?
   inspectionExpiry   DateTime?
   nextServiceDate    DateTime?
+  // Pollution Certificate (PUC) Fields (Phase 3)
+  pucNumber          String?
+  pucIssueDate       DateTime?
+  pucExpiryDate      DateTime?
+  pucNotes           String?
   mileage            Int?
   nextServiceMileage Int?
   notes              String?
@@ -372,6 +393,7 @@ model FamilyMember {
   phoneNumber      String?
   email            String?
   notes            String?
+  healthProfile    HealthProfile?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -635,5 +657,137 @@ model AiMessage {
   @@index([conversationId])
   @@index([createdAt])
 }
+
+// -------------------------------------------------------------
+// 20. Credit Card Management (Phase 4)
+// -------------------------------------------------------------
+model CreditCard {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardName       String          // e.g. "HDFC Regalia", "Sapphire Preferred"
+  bank           String          // e.g. "HDFC Bank", "Chase"
+  network        String?         @default("Visa") // "Visa" | "Mastercard" | "Amex" | "RuPay" | "Other"
+  lastFour       String          // ONLY last 4 digits stored! Never store full card number or CVV
+  creditLimit    Float           // Total credit limit
+  currentBalance Float           @default(0.0) // Current billed/unbilled balance
+  statementDay   Int             @default(1) // 1-31 (Day of month statement is generated)
+  dueDay         Int             @default(20) // 1-31 (Payment due day)
+  minimumDue     Float?          @default(0.0)
+  totalDue       Float?          @default(0.0)
+  currency       String          @default("USD")
+  notes          String?
+  emis           CreditCardEmi[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([userId])
+}
+
+model CreditCardEmi {
+  id               String     @id @default(cuid())
+  cardId           String
+  card             CreditCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant         String     // e.g. "Apple Store", "Amazon"
+  totalAmount      Float      // Total purchase price converted to EMI
+  monthlyEmi       Float      // Monthly installment amount
+  interestRate     Float?     // Annual interest rate percentage
+  tenureMonths     Int        // Total tenure in months (e.g. 6, 12, 24)
+  paidMonths       Int        @default(0) // Installments paid so far
+  startDate        DateTime   // Start date of EMI
+  status           String     @default("active") // "active" | "completed" | "cancelled"
+  notes            String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([cardId])
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// 21. Mutual Funds & Investment Tracking (Phase 5)
+// -------------------------------------------------------------
+model Investment {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String    // e.g. "Parag Parikh Flexi Cap Fund", "Vanguard 500 ETF"
+  fundHouse          String?   // e.g. "PPFAS Mutual Fund", "Vanguard", "BlackRock"
+  folioNumber        String?   // Account or Folio number
+  type               String    @default("mutual_fund") // "mutual_fund" | "sip" | "stocks" | "fd" | "bonds" | "crypto" | "other"
+  investmentMode     String    @default("lumpsum") // "sip" | "lumpsum"
+  sipAmount          Float?    // Periodic SIP installment
+  sipFrequency       String?   @default("monthly") // "monthly" | "weekly" | "quarterly"
+  sipDay             Int?      // Day of month SIP debits (1-31)
+  sipStartDate       DateTime?
+  sipEndDate         DateTime?
+  totalInvested      Float     @default(0.0) // Total principal invested (Cost Basis)
+  currentValuation   Float     @default(0.0) // Current portfolio market valuation
+  units              Float?    // Total units held
+  nav                Float?    // Net Asset Value per unit
+  currency           String    @default("USD")
+  lastValuationDate  DateTime?
+  notes              String?
+  status             String    @default("active") // "active" | "paused" | "redeemed"
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([type])
+}
+
+// -------------------------------------------------------------
+// 22. Family Health Profiles & Health Insurance (Phase 6)
+// -------------------------------------------------------------
+model HealthProfile {
+  id                    String        @id @default(cuid())
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyMemberId        String?       @unique
+  familyMember          FamilyMember? @relation(fields: [familyMemberId], references: [id], onDelete: Cascade)
+  memberName            String?       // Fallback name if not linked to familyMember
+  bloodGroup            String?       // "A+", "O-", etc.
+  height                Float?        // cm
+  weight                Float?        // kg
+  allergies             String?       // Comma-separated or notes
+  chronicConditions     String?       // e.g. "Hypertension, Asthma"
+  medications           String?       // Current regular medications
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  doctorName            String?
+  doctorPhone           String?
+  notes                 String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([userId])
+}
+
+model HealthInsurance {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policyName        String    // e.g. "Star Comprehensive Family Floater"
+  provider          String    // e.g. "Star Health", "BlueCross", "Bupa"
+  policyNumber      String    // Policy account / document number
+  sumInsured        Float     // Total coverage amount
+  premiumAmount     Float     // Premium cost
+  premiumFrequency  String    @default("yearly") // "yearly" | "monthly" | "quarterly"
+  startDate         DateTime
+  expiryDate        DateTime  // Renewal due date
+  coveredMembers    String?   // JSON string or comma-separated names of covered members
+  tpaContact        String?   // TPA / Helpline phone number
+  cashlessHospitals String?   // Notes on preferred hospitals
+  notes             String?
+  status            String    @default("active") // "active" | "expired" | "grace_period"
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([expiryDate])
+}
+
 
 

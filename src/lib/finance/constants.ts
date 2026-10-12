@@ -29,7 +29,19 @@ export const PAYMENT_FREQUENCIES = [
 
 export type PaymentFrequency = "none" | "weekly" | "monthly" | "quarterly" | "yearly";
 
-export type PaymentStatus = "Upcoming" | "Due Today" | "Overdue" | "Paid";
+export const LOAN_CATEGORIES = [
+  { value: "home", label: "Home Loan" },
+  { value: "car", label: "Car / Auto Loan" },
+  { value: "personal", label: "Personal Loan" },
+  { value: "education", label: "Education / Student Loan" },
+  { value: "business", label: "Business Loan" },
+  { value: "credit_card", label: "Credit Card EMI" },
+  { value: "other", label: "Other Loan / Financing" },
+] as const;
+
+export type LoanCategory = (typeof LOAN_CATEGORIES)[number]["value"];
+
+export type PaymentStatus = "Upcoming" | "Due Today" | "Overdue" | "Paid" | "Closed";
 
 export const EXPENSE_CATEGORIES = [
   "Food",

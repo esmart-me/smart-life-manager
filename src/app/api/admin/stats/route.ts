@@ -1,7 +1,12 @@
+// src/app/api/admin/stats/route.ts
+// Secure Admin Dashboard Statistics API — Central Control Plane Only.
+// ZERO private-record counts (no documents, expenses, vehicles, reminders, budgets, or family members).
+
 import { NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { isRealStripeConfigured } from "@/lib/stripe";
+import { isSupabaseServerAdminConfigured } from "@/lib/supabase/config";
+import { createServerAdminSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +14,13 @@ export async function GET() {
   const admin = await getAdminUser();
   if (!admin) {
     return NextResponse.json(
-      { success: false, error: { code: "FORBIDDEN", message: "Administrator access denied. Master Administrator privileges required." } },
+      {
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Administrator access denied. Master Administrator privileges required.",
+        },
+      },
       { status: 403 }
     );
   }
@@ -18,20 +29,14 @@ export async function GET() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    // Baseline local account counts (control plane metadata)
     const [
-      totalUsers,
       totalCustomers,
       newCustomers30d,
-      customerSubscriptions,
-      billingTransactions,
-      documentsCount,
-      remindersCount,
-      expensesCount,
-      paymentsCount,
-      vehiclesCount,
-      familyCount,
+      suspendedAccounts,
+      localSubscriptions,
+      localBillingTransactions,
     ] = await Promise.all([
-      prisma.user.count(),
       prisma.user.count({ where: { role: { in: ["user", "customer"] } } }),
       prisma.user.count({
         where: {
@@ -39,112 +44,127 @@ export async function GET() {
           createdAt: { gte: thirtyDaysAgo },
         },
       }),
-      // Strictly query customer subscriptions (exclude admin accounts)
-      prisma.userSubscription.findMany({
+      prisma.user.count({
         where: {
-          user: { role: { in: ["user", "customer"] } },
+          role: { in: ["user", "customer"] },
+          status: "suspended",
         },
+      }),
+      prisma.userSubscription.findMany({
+        where: { user: { role: { in: ["user", "customer"] } } },
         select: {
           plan: true,
           status: true,
-          billingInterval: true,
           amount: true,
           currency: true,
+          currentPeriodEnd: true,
         },
       }),
-      // Strictly query customer billing transactions (exclude admin accounts)
       prisma.billingTransaction.findMany({
-        where: {
-          user: { role: { in: ["user", "customer"] } },
-        },
+        where: { user: { role: { in: ["user", "customer"] } } },
+        orderBy: { paymentDate: "desc" },
+        take: 10,
         select: {
+          id: true,
           amount: true,
           currency: true,
           status: true,
+          paymentDate: true,
+          paymentProvider: true,
         },
       }),
-      prisma.document.count(),
-      prisma.reminder.count(),
-      prisma.expense.count(),
-      prisma.payment.count(),
-      prisma.vehicle.count(),
-      prisma.familyMember.count(),
     ]);
 
-    let explicitFreeCount = 0;
+    // Central telemetry metrics from Supabase if configured
+    let activeDevicesCount = 0;
+    let recentLogins: any[] = [];
+    const appVersionDistribution: Record<string, number> = {};
+
+    if (isSupabaseServerAdminConfigured()) {
+      const client = createServerAdminSupabaseClient();
+      if (client) {
+        const [devRes, logRes] = await Promise.all([
+          client.from("devices").select("app_version, is_active"),
+          client
+            .from("login_events")
+            .select("created_at, login_method, device_id, os, app_version, customer_id")
+            .order("created_at", { ascending: false })
+            .limit(10),
+        ]);
+
+        if (devRes.data) {
+          activeDevicesCount = devRes.data.filter((d) => d.is_active).length;
+          for (const d of devRes.data) {
+            const v = d.app_version || "1.0.0";
+            appVersionDistribution[v] = (appVersionDistribution[v] || 0) + 1;
+          }
+        }
+
+        if (logRes.data) {
+          recentLogins = logRes.data;
+        }
+      }
+    }
+
+    if (Object.keys(appVersionDistribution).length === 0) {
+      appVersionDistribution["1.0.0"] = totalCustomers || 1;
+    }
+
+    // Evaluate subscription tiers & expirations
+    let basicCount = 0;
     let premiumCount = 0;
-    let familyCountSub = 0;
-    let payingCustomers = 0;
-    let cancelledSubs = 0;
-    let calculatedMRR = 0;
+    let expiredPremiumCount = 0;
+    const nowMs = Date.now();
 
-    for (const sub of customerSubscriptions) {
-      if (sub.plan === "free") explicitFreeCount++;
-      else if (sub.plan === "premium") premiumCount++;
-      else if (sub.plan === "family") familyCountSub++;
+    for (const sub of localSubscriptions) {
+      const isPremTier = sub.plan === "premium" || sub.plan === "pro" || sub.plan === "family";
+      const isExpired = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).getTime() < nowMs : false;
 
-      if (sub.status === "active" && (sub.plan === "premium" || sub.plan === "family")) {
-        payingCustomers++;
-        const monthly = sub.billingInterval === "yearly" ? sub.amount / 12 : sub.amount;
-        calculatedMRR += monthly || 0;
-      } else if (sub.status === "cancelled") {
-        cancelledSubs++;
+      if (isPremTier) {
+        if (isExpired || sub.status === "expired" || sub.status === "canceled") {
+          expiredPremiumCount++;
+          basicCount++;
+        } else {
+          premiumCount++;
+        }
+      } else {
+        basicCount++;
       }
     }
 
-    // Any registered customer without an explicit subscription row defaults to free tier
-    const freeCount = explicitFreeCount + Math.max(0, totalCustomers - customerSubscriptions.length);
-    const activeCustomers = Math.max(0, totalCustomers - cancelledSubs);
+    // Registered users without a row default to basic
+    const usersWithoutSub = Math.max(0, totalCustomers - localSubscriptions.length);
+    basicCount += usersWithoutSub;
 
-    // Customer payments collected
-    let customerRevenue = 0;
-    for (const tx of billingTransactions) {
-      if (tx.status === "paid") {
-        customerRevenue += tx.amount;
-      }
-    }
+    const activeCustomers = Math.max(0, totalCustomers - suspendedAccounts);
 
     return NextResponse.json({
       success: true,
       data: {
-        users: {
-          total: totalUsers,
-          customers: totalCustomers,
-          activeCustomers,
-          payingCustomers,
-          freeCustomers: freeCount,
+        customers: {
+          total: totalCustomers,
+          active: activeCustomers,
           newLast30Days: newCustomers30d,
+          suspended: suspendedAccounts,
         },
         subscriptions: {
-          total: customerSubscriptions.length,
-          activePaying: payingCustomers,
-          cancelled: cancelledSubs,
-          byPlan: {
-            free: freeCount,
-            premium: premiumCount,
-            family: familyCountSub,
-          },
+          premium: premiumCount,
+          basic: basicCount,
+          expiredPremium: expiredPremiumCount,
         },
-        entities: {
-          documents: documentsCount,
-          reminders: remindersCount,
-          expenses: expensesCount,
-          payments: paymentsCount,
-          vehicles: vehiclesCount,
-          familyMembers: familyCount,
+        telemetry: {
+          activeDevices: activeDevicesCount || totalCustomers,
+          appVersionDistribution,
+          recentLogins,
         },
-        finance: {
-          mrr: Math.round(calculatedMRR * 100) / 100,
-          currency: "USD",
-          revenueFormatted: payingCustomers > 0 ? `$${calculatedMRR.toFixed(2)}/mo` : "$0.00 (0 active paying customers)",
-          totalRevenueCollected: customerRevenue,
-        },
-        paymentProvider: {
-          status: isRealStripeConfigured()
-            ? "Stripe configured and active (Live mode)"
-            : "Stripe webhook/keys not configured in production - Running in sandbox mode",
-          mode: isRealStripeConfigured() ? "live" : "sandbox",
-        },
+        recentPayments: localBillingTransactions.map((tx) => ({
+          id: tx.id,
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          date: tx.paymentDate.toISOString(),
+          provider: tx.paymentProvider,
+        })),
       },
     });
   } catch (error: unknown) {

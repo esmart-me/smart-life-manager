@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { VEHICLE_ALERT_THRESHOLDS } from "./constants";
 
 export interface VehicleAlert {
-  type: "insurance" | "registration" | "service" | "mileage";
+  type: "insurance" | "registration" | "puc" | "service" | "mileage";
   urgency: "urgent" | "warning" | "info";
   title: string;
   message: string;
@@ -13,6 +13,7 @@ export interface VehicleAlert {
 export interface VehicleStatusSummary {
   insuranceStatus: "EXPIRED" | "EXPIRING_SOON" | "VALID" | "NOT_SET";
   registrationStatus: "EXPIRED" | "EXPIRING_SOON" | "VALID" | "NOT_SET";
+  pucStatus: "EXPIRED" | "EXPIRING_SOON" | "VALID" | "NOT_SET";
   serviceStatus: "OVERDUE" | "DUE_SOON" | "VALID" | "NOT_SET";
   mileageStatus: "OVERDUE" | "DUE_SOON" | "OK" | "NOT_SET";
   alerts: VehicleAlert[];
@@ -24,6 +25,7 @@ export function calculateVehicleAlerts(
     name: string;
     insuranceExpiry?: Date | string | null;
     registrationExpiry?: Date | string | null;
+    pucExpiryDate?: Date | string | null;
     nextServiceDate?: Date | string | null;
     mileage?: number | null;
     nextServiceMileage?: number | null;
@@ -97,7 +99,39 @@ export function calculateVehicleAlerts(
     }
   }
 
-  // 3. Service Date Status
+  // 3. Pollution Certificate (PUC) Status (Phase 3)
+  let pucStatus: VehicleStatusSummary["pucStatus"] = "NOT_SET";
+  if (vehicle.pucExpiryDate) {
+    const expDate = new Date(vehicle.pucExpiryDate);
+    const diffMs = expDate.getTime() - now;
+    const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (daysRemaining < 0) {
+      pucStatus = "EXPIRED";
+      alerts.push({
+        type: "puc",
+        urgency: "urgent",
+        title: `${vehicle.name} Pollution Certificate (PUC) Expired`,
+        message: `Pollution Certificate expired ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? "" : "s"} ago. Renew immediately to ensure road compliance.`,
+        dueDate: expDate,
+        daysRemaining,
+      });
+    } else if (daysRemaining <= VEHICLE_ALERT_THRESHOLDS.EXPIRING_SOON_DAYS) {
+      pucStatus = "EXPIRING_SOON";
+      alerts.push({
+        type: "puc",
+        urgency: daysRemaining <= VEHICLE_ALERT_THRESHOLDS.CRITICAL_DAYS ? "urgent" : "warning",
+        title: `${vehicle.name} Pollution Certificate (PUC) Expiring Soon`,
+        message: `Pollution Certificate expires in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}.`,
+        dueDate: expDate,
+        daysRemaining,
+      });
+    } else {
+      pucStatus = "VALID";
+    }
+  }
+
+  // 4. Service Date Status
   let serviceStatus: VehicleStatusSummary["serviceStatus"] = "NOT_SET";
   if (vehicle.nextServiceDate) {
     const serviceDate = new Date(vehicle.nextServiceDate);
@@ -129,7 +163,7 @@ export function calculateVehicleAlerts(
     }
   }
 
-  // 4. Service Mileage Status
+  // 5. Service Mileage Status
   let mileageStatus: VehicleStatusSummary["mileageStatus"] = "NOT_SET";
   if (vehicle.mileage !== null && vehicle.mileage !== undefined && vehicle.nextServiceMileage !== null && vehicle.nextServiceMileage !== undefined) {
     const diff = vehicle.nextServiceMileage - vehicle.mileage;
@@ -157,6 +191,7 @@ export function calculateVehicleAlerts(
   return {
     insuranceStatus,
     registrationStatus,
+    pucStatus,
     serviceStatus,
     mileageStatus,
     alerts,
@@ -174,6 +209,7 @@ export async function syncVehicleReminders(
     name: string;
     insuranceExpiry?: Date | null;
     registrationExpiry?: Date | null;
+    pucExpiryDate?: Date | null;
     nextServiceDate?: Date | null;
   }
 ) {
@@ -234,6 +270,14 @@ export async function syncVehicleReminders(
     `Renew ${vehicle.name} Registration / Mulkiya`,
     vehicle.registrationExpiry || null,
     "urgent"
+  );
+
+  // Sync Pollution Certificate (PUC)
+  await syncOne(
+    "puc",
+    `Renew ${vehicle.name} Pollution Certificate (PUC)`,
+    vehicle.pucExpiryDate || null,
+    "high"
   );
 
   // Sync Service

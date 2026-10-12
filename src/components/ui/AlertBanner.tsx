@@ -25,10 +25,10 @@ export function AlertBanner({
   };
 
   const styles = {
-    info: "bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-200",
-    success: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200",
-    warning: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200",
-    error: "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200",
+    info: "bg-sky-500/10 dark:bg-sky-500/15 backdrop-blur-md border-sky-400/30 dark:border-sky-500/25 text-sky-900 dark:text-sky-200 shadow-xs",
+    success: "bg-emerald-500/10 dark:bg-emerald-500/15 backdrop-blur-md border-emerald-400/30 dark:border-emerald-500/25 text-emerald-900 dark:text-emerald-200 shadow-xs",
+    warning: "bg-amber-500/10 dark:bg-amber-500/15 backdrop-blur-md border-amber-400/30 dark:border-amber-500/25 text-amber-900 dark:text-amber-200 shadow-xs",
+    error: "bg-rose-500/10 dark:bg-rose-500/15 backdrop-blur-md border-rose-400/30 dark:border-rose-500/25 text-rose-900 dark:text-rose-200 shadow-xs",
   };
 
   const Icon = icons[type];
@@ -37,7 +37,7 @@ export function AlertBanner({
     <div
       role="alert"
       className={cn(
-        "flex items-start gap-3 p-3.5 rounded-lg border text-xs relative",
+        "flex items-start gap-3 p-3.5 rounded-xl border text-xs relative transition-all",
         styles[type],
         className
       )}
@@ -51,7 +51,7 @@ export function AlertBanner({
         <button
           type="button"
           onClick={onDismiss}
-          className="text-current opacity-70 hover:opacity-100 p-0.5 rounded transition-opacity"
+          className="text-current opacity-70 hover:opacity-100 p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
           aria-label="Dismiss alert"
         >
           <X className="w-3.5 h-3.5" />

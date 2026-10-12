@@ -1,6 +1,7 @@
 /**
  * Currency Exchange Service
- * Provides live exchange rates with server-side caching and offline fallback.
+ * Provides live exchange rates with multi-provider failover, in-memory caching,
+ * force-refresh bypass, and truthful offline/fallback status.
  * Base currency: USD
  */
 
@@ -13,7 +14,7 @@ export interface CurrencyMetadata {
 }
 
 export const SUPPORTED_CURRENCIES: CurrencyMetadata[] = [
-  // GCC Currencies
+  // GCC Currencies (Primary priority)
   { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "🇦🇪", region: "GCC" },
   { code: "SAR", name: "Saudi Riyal", symbol: "﷼", flag: "🇸🇦", region: "GCC" },
   { code: "QAR", name: "Qatari Riyal", symbol: "﷼", flag: "🇶🇦", region: "GCC" },
@@ -21,7 +22,7 @@ export const SUPPORTED_CURRENCIES: CurrencyMetadata[] = [
   { code: "BHD", name: "Bahraini Dinar", symbol: "BD", flag: "🇧🇭", region: "GCC" },
   { code: "OMR", name: "Omani Rial", symbol: "﷼", flag: "🇴🇲", region: "GCC" },
 
-  // Major Currencies
+  // Major Global Currencies
   { code: "USD", name: "US Dollar", symbol: "$", flag: "🇺🇸", region: "Major" },
   { code: "EUR", name: "Euro", symbol: "€", flag: "🇪🇺", region: "Major" },
   { code: "GBP", name: "British Pound", symbol: "£", flag: "🇬🇧", region: "Major" },
@@ -33,7 +34,7 @@ export const SUPPORTED_CURRENCIES: CurrencyMetadata[] = [
   { code: "SGD", name: "Singapore Dollar", symbol: "S$", flag: "🇸🇬", region: "Major" },
   { code: "CNY", name: "Chinese Yuan", symbol: "¥", flag: "🇨🇳", region: "Major" },
 
-  // Regional Neighbors
+  // Regional & High Volume
   { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "🇵🇰", region: "Asia" },
   { code: "BDT", name: "Bangladeshi Taka", symbol: "৳", flag: "🇧🇩", region: "Asia" },
   { code: "PHP", name: "Philippine Peso", symbol: "₱", flag: "🇵🇭", region: "Asia" },
@@ -44,8 +45,9 @@ export const SUPPORTED_CURRENCIES: CurrencyMetadata[] = [
   { code: "ZAR", name: "South African Rand", symbol: "R", flag: "🇿🇦", region: "Other" },
 ];
 
-// Fallback rates relative to 1 USD in case external network fails
-const FALLBACK_RATES: Record<string, number> = {
+// Offline benchmark rates (Clearly labeled as benchmark fallback, never presented as live)
+export const FALLBACK_BENCHMARK_DATE = "October 2024 (Static Benchmark)";
+export const FALLBACK_RATES: Record<string, number> = {
   USD: 1.0,
   AED: 3.6725,
   SAR: 3.75,
@@ -72,39 +74,36 @@ const FALLBACK_RATES: Record<string, number> = {
   ZAR: 18.2,
 };
 
-// In-memory cache for fast lookups
 interface CacheEntry {
   rates: Record<string, number>;
   lastUpdated: string;
+  provider: string;
   timestamp: number;
 }
 
 let ratesCache: CacheEntry | null = null;
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15-minute standard cache
 
-export async function getExchangeRates(): Promise<{
+export interface ExchangeRatesResult {
   rates: Record<string, number>;
   lastUpdated: string;
   source: "live" | "cache" | "fallback";
-}> {
-  const now = Date.now();
+  provider: string;
+  timestamp: number;
+  isStaleFallback?: boolean;
+}
 
-  // Return cached rates if fresh
-  if (ratesCache && now - ratesCache.timestamp < CACHE_TTL_MS) {
-    return {
-      rates: ratesCache.rates,
-      lastUpdated: ratesCache.lastUpdated,
-      source: "cache",
-    };
-  }
+/**
+ * Fetches exchange rates from primary provider (ExchangeRate-API open endpoint).
+ */
+async function fetchFromPrimaryProvider(): Promise<{ rates: Record<string, number>; provider: string; lastUpdated: string } | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4500);
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
     const res = await fetch("https://open.er-api.com/v6/latest/USD", {
       signal: controller.signal,
-      next: { revalidate: 3600 },
+      cache: "no-store",
     });
     clearTimeout(timeoutId);
 
@@ -115,36 +114,130 @@ export async function getExchangeRates(): Promise<{
         for (const curr of SUPPORTED_CURRENCIES) {
           rates[curr.code] = data.rates[curr.code] || FALLBACK_RATES[curr.code] || 1;
         }
-
-        ratesCache = {
-          rates,
-          lastUpdated: data.time_last_update_utc || new Date().toUTCString(),
-          timestamp: now,
-        };
-
         return {
           rates,
-          lastUpdated: ratesCache.lastUpdated,
-          source: "live",
+          provider: "Open Exchange Rates (Live)",
+          lastUpdated: new Date().toISOString(),
         };
       }
     }
   } catch (err) {
-    console.warn("External exchange rate API fetch failed, using fallback/cached rates:", err);
+    clearTimeout(timeoutId);
+    console.warn("[ExchangeService] Primary exchange rate API failed:", err instanceof Error ? err.message : err);
+  }
+  return null;
+}
+
+/**
+ * Fetches exchange rates from secondary provider (Currency-API pages.dev endpoint).
+ * Provides GCC + International rates with daily updates.
+ */
+async function fetchFromSecondaryProvider(): Promise<{ rates: Record<string, number>; provider: string; lastUpdated: string } | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+  try {
+    const res = await fetch("https://latest.currency-api.pages.dev/v1/currencies/usd.json", {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.usd && typeof data.usd === "object") {
+        const rates: Record<string, number> = {};
+        for (const curr of SUPPORTED_CURRENCIES) {
+          const lower = curr.code.toLowerCase();
+          rates[curr.code] = typeof data.usd[lower] === "number" ? data.usd[lower] : FALLBACK_RATES[curr.code] || 1;
+        }
+        return {
+          rates,
+          provider: "Currency-API (Live CDN)",
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+    }
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn("[ExchangeService] Secondary exchange rate API failed:", err instanceof Error ? err.message : err);
+  }
+  return null;
+}
+
+/**
+ * Retrieves exchange rates.
+ * Supports explicit forceRefresh to bypass in-memory caching.
+ */
+export async function getExchangeRates(forceRefresh = false): Promise<ExchangeRatesResult> {
+  const now = Date.now();
+
+  // Return fresh in-memory cache if valid and forceRefresh is NOT requested
+  if (!forceRefresh && ratesCache && now - ratesCache.timestamp < CACHE_TTL_MS) {
+    return {
+      rates: ratesCache.rates,
+      lastUpdated: ratesCache.lastUpdated,
+      source: "cache",
+      provider: ratesCache.provider,
+      timestamp: ratesCache.timestamp,
+    };
   }
 
+  // 1. Attempt Primary Provider
+  const primaryResult = await fetchFromPrimaryProvider();
+  if (primaryResult) {
+    ratesCache = {
+      rates: primaryResult.rates,
+      lastUpdated: primaryResult.lastUpdated,
+      provider: primaryResult.provider,
+      timestamp: now,
+    };
+    return {
+      rates: ratesCache.rates,
+      lastUpdated: ratesCache.lastUpdated,
+      source: "live",
+      provider: ratesCache.provider,
+      timestamp: now,
+    };
+  }
+
+  // 2. Attempt Secondary Provider (Failover)
+  const secondaryResult = await fetchFromSecondaryProvider();
+  if (secondaryResult) {
+    ratesCache = {
+      rates: secondaryResult.rates,
+      lastUpdated: secondaryResult.lastUpdated,
+      provider: secondaryResult.provider,
+      timestamp: now,
+    };
+    return {
+      rates: ratesCache.rates,
+      lastUpdated: ratesCache.lastUpdated,
+      source: "live",
+      provider: ratesCache.provider,
+      timestamp: now,
+    };
+  }
+
+  // 3. Fallback: If cache exists from earlier in the session, return with cache indicator
   if (ratesCache) {
     return {
       rates: ratesCache.rates,
       lastUpdated: ratesCache.lastUpdated,
       source: "cache",
+      provider: `${ratesCache.provider} (Retained)`,
+      timestamp: ratesCache.timestamp,
     };
   }
 
+  // 4. Offline Benchmark Fallback (Truthfully labeled as offline benchmark)
   return {
     rates: FALLBACK_RATES,
-    lastUpdated: new Date().toUTCString(),
+    lastUpdated: FALLBACK_BENCHMARK_DATE,
     source: "fallback",
+    provider: "Offline Benchmark",
+    timestamp: now,
+    isStaleFallback: true,
   };
 }
 

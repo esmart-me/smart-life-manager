@@ -37,6 +37,10 @@ export interface VehicleRecord {
   nextServiceMileage?: number | null;
   insuranceExpiry?: string | Date | null;
   registrationExpiry?: string | Date | null;
+  pucNumber?: string | null;
+  pucIssueDate?: string | Date | null;
+  pucExpiryDate?: string | Date | null;
+  pucNotes?: string | null;
   nextServiceDate?: string | Date | null;
   notes?: string | null;
   statusSummary: VehicleStatusSummary;
@@ -236,7 +240,7 @@ export function VehicleListClient({ initialVehicles }: VehicleListClientProps) {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredVehicles.map((vehicle) => {
-            const { alerts, insuranceStatus, registrationStatus, serviceStatus, mileageStatus } =
+            const { alerts, insuranceStatus, registrationStatus, pucStatus, serviceStatus, mileageStatus } =
               vehicle.statusSummary;
 
             return (
@@ -302,7 +306,7 @@ export function VehicleListClient({ initialVehicles }: VehicleListClientProps) {
                 </div>
 
                 {/* Expiries & Status Matrix */}
-                <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                   {/* Registration */}
                   <div className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-1">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -346,6 +350,29 @@ export function VehicleListClient({ initialVehicles }: VehicleListClientProps) {
                       }`}
                     >
                       {insuranceStatus.replace("_", " ")}
+                    </span>
+                  </div>
+
+                  {/* Pollution Certificate (PUC) */}
+                  <div className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Pollution (PUC)
+                    </span>
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      {vehicle.pucExpiryDate ? formatShortDate(vehicle.pucExpiryDate) : "Not set"}
+                    </p>
+                    <span
+                      className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        pucStatus === "EXPIRED"
+                          ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
+                          : pucStatus === "EXPIRING_SOON"
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                          : pucStatus === "VALID"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                          : "text-slate-400"
+                      }`}
+                    >
+                      {pucStatus.replace("_", " ")}
                     </span>
                   </div>
                 </div>

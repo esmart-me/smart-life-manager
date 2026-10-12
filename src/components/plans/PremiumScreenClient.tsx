@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { PlanTier, PlanFeature } from "@/lib/plans/constants";
 import { UserPlanSummary } from "@/lib/plans/plan-service";
 import { RegionDefinition, formatRegionalCurrency } from "@/lib/regions";
+import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
 
 interface PlanItem {
   id: string;
@@ -204,8 +205,8 @@ export function PremiumScreenClient() {
     <div className="space-y-8 max-w-6xl mx-auto pb-12">
       {/* Header */}
       <div className="text-center space-y-3 pt-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-300 text-xs font-semibold">
-          <Sparkles className="w-3.5 h-3.5 text-brand-500" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-theme-accent-subtle border border-theme-accent/30 text-theme-accent text-xs font-semibold shadow-xs">
+          <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
           <span>Monetization & Regional Pricing</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -244,9 +245,9 @@ export function PremiumScreenClient() {
         )}
 
         {/* Region & Multi-Currency Switcher Banner */}
-        <div className="inline-flex flex-wrap items-center justify-center gap-2.5 p-2 px-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs text-xs">
+        <div className="glass-panel inline-flex flex-wrap items-center justify-center gap-2.5 p-2 px-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-glass-sm text-xs">
           <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-            <Globe className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+            <Globe className="w-4 h-4 text-theme-accent" />
             <span className="font-medium">Region & Currency:</span>
           </div>
 
@@ -255,10 +256,10 @@ export function PremiumScreenClient() {
               value={selectedRegion?.countryCode || "US"}
               onChange={(e) => handleRegionChange(e.target.value)}
               disabled={isChangingRegion}
-              className="appearance-none pl-3 pr-8 py-1.5 font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 text-xs"
+              className="glass-input appearance-none pl-3 pr-8 py-1.5 font-semibold border border-slate-200 dark:border-white/10 rounded-lg text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-theme-accent/40 focus:border-theme-accent disabled:opacity-50 text-xs"
             >
               {supportedRegions.map((reg) => (
-                <option key={reg.countryCode} value={reg.countryCode}>
+                <option key={reg.countryCode} value={reg.countryCode} className="bg-white dark:bg-charcoal-900 text-slate-900 dark:text-white">
                   {reg.flag} {reg.country} — {reg.currencyCode} ({reg.currencySymbol})
                 </option>
               ))}
@@ -275,19 +276,35 @@ export function PremiumScreenClient() {
 
         {/* Current User Active Plan Overview */}
         {summary && (
-          <div className="max-w-2xl mx-auto p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs text-left space-y-3">
+          <div className="glass-panel max-w-2xl mx-auto p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-glass-md text-left space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
-                  Current Active Plan
+                  Current Entitlement Status
                 </span>
                 <div className="flex items-center gap-2 mt-0.5">
                   <h3 className="text-base font-bold text-slate-900 dark:text-white capitalize">
                     {summary.planName}
                   </h3>
-                  <Badge variant={summary.plan === "free" ? "outline" : "success"}>
-                    {summary.status.toUpperCase()}
-                  </Badge>
+                  {summary.isPremiumOrFamily && summary.status === "active" ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="emerald">PREMIUM ACTIVE</Badge>
+                      {typeof summary.daysRemaining === "number" && summary.daysRemaining > 0 && (
+                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 dark:bg-emeraldLuxury-900/40 px-2 py-0.5 rounded-md border border-emerald-500/25">
+                          <AnimatedCounter
+                            value={summary.daysRemaining}
+                            suffix=" days remaining"
+                          />
+                        </span>
+                      )}
+                    </div>
+                  ) : summary.status === "expired" ? (
+                    <Badge variant="warning">PREMIUM EXPIRED</Badge>
+                  ) : summary.status === "canceled" ? (
+                    <Badge variant="danger">CANCELED</Badge>
+                  ) : (
+                    <Badge variant="outline">BASIC PLAN</Badge>
+                  )}
                 </div>
               </div>
               <div className="text-left sm:text-right">
@@ -302,26 +319,38 @@ export function PremiumScreenClient() {
               </div>
             </div>
 
+            {summary.status === "expired" && (
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-amber-900 dark:text-amber-100">Subscription Expired</p>
+                  <p className="text-amber-700 dark:text-amber-300 mt-0.5">
+                    Your Premium subscription has expired. Your existing data remains safe and available. Renew Premium to continue using Premium features.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Current Resource Usage Meters */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1">
-                    <FileText className="w-3 h-3" /> Documents
+                    <FileText className="w-3 h-3 text-theme-accent" /> Documents
                   </span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {summary.limits.documents.current} /{" "}
                     {summary.limits.documents.isUnlimited ? "∞" : summary.limits.documents.max}
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-charcoal-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
                       summary.limits.documents.percentUsed >= 100
                         ? "bg-rose-500"
                         : summary.limits.documents.percentUsed > 80
                         ? "bg-amber-500"
-                        : "bg-brand-500"
+                        : "bg-theme-accent-gradient"
                     }`}
                     style={{ width: `${summary.limits.documents.percentUsed}%` }}
                   />
@@ -331,21 +360,21 @@ export function PremiumScreenClient() {
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1">
-                    <Car className="w-3 h-3" /> Vehicles
+                    <Car className="w-3 h-3 text-emerald-500" /> Vehicles
                   </span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {summary.limits.vehicles.current} /{" "}
                     {summary.limits.vehicles.isUnlimited ? "∞" : summary.limits.vehicles.max}
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-charcoal-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
                       summary.limits.vehicles.percentUsed >= 100
                         ? "bg-rose-500"
                         : summary.limits.vehicles.percentUsed > 80
                         ? "bg-amber-500"
-                        : "bg-emerald-500"
+                        : "bg-gradient-to-r from-emerald-600 to-emerald-400"
                     }`}
                     style={{ width: `${summary.limits.vehicles.percentUsed}%` }}
                   />
@@ -355,14 +384,14 @@ export function PremiumScreenClient() {
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1">
-                    <Users className="w-3 h-3" /> Family Members
+                    <Users className="w-3 h-3 text-indigo-400" /> Family Members
                   </span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {summary.limits.familyMembers.current} /{" "}
                     {summary.limits.familyMembers.isUnlimited ? "∞" : summary.limits.familyMembers.max}
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-charcoal-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
                       summary.limits.familyMembers.percentUsed >= 100
@@ -379,13 +408,13 @@ export function PremiumScreenClient() {
 
         {/* Monthly / Yearly Toggle */}
         <div className="pt-2 flex items-center justify-center">
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-2xs">
+          <div className="glass-panel flex items-center p-1 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-glass-sm">
             <button
               type="button"
               onClick={() => setBillingInterval("monthly")}
               className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 billingInterval === "monthly"
-                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs"
+                  ? "btn-theme-accent text-white font-bold shadow-theme-glow"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
@@ -396,12 +425,16 @@ export function PremiumScreenClient() {
               onClick={() => setBillingInterval("yearly")}
               className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
                 billingInterval === "yearly"
-                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs"
+                  ? "btn-theme-accent text-white font-bold shadow-theme-glow"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <span>Annual Billing</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                billingInterval === "yearly"
+                  ? "bg-white/20 text-white border-white/30"
+                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+              }`}>
                 Save ~25%
               </span>
             </button>
@@ -428,13 +461,13 @@ export function PremiumScreenClient() {
               key={plan.plan}
               className={`relative rounded-2xl border transition-all flex flex-col justify-between p-6 ${
                 plan.isPopular
-                  ? "border-brand-500 dark:border-brand-500 bg-white dark:bg-slate-900 shadow-md ring-1 ring-brand-500/20"
-                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-2xs hover:shadow-xs"
+                  ? "glass-card border-2 border-theme-accent shadow-theme-glow ring-1 ring-theme-accent/30"
+                  : "glass-card border-slate-200/80 dark:border-white/10 shadow-glass-sm hover:shadow-glass-md hover:border-theme-accent/30"
               }`}
             >
               {plan.isPopular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-brand-600 text-white shadow-xs">
+                  <span className="px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider btn-theme-accent text-white shadow-theme-glow border border-theme-accent/40">
                     Most Popular
                   </span>
                 </div>
@@ -447,7 +480,7 @@ export function PremiumScreenClient() {
                     {plan.name}
                   </h3>
                   {isCurrent && (
-                    <Badge variant="success">Current Plan</Badge>
+                    <Badge variant={plan.isPopular ? "gold" : "emerald"}>Current Plan</Badge>
                   )}
                 </div>
 
@@ -475,9 +508,9 @@ export function PremiumScreenClient() {
                 </div>
 
                 {/* Resource Limits Highlights */}
-                <div className="space-y-2 py-3 border-y border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
+                <div className="space-y-2 py-3 border-y border-slate-100 dark:border-white/5 text-xs text-slate-600 dark:text-slate-300">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                    <FileText className="w-3.5 h-3.5 text-theme-accent shrink-0" />
                     <span>
                       {plan.maxDocuments === -1 ? (
                         <strong>Unlimited</strong>
@@ -488,7 +521,7 @@ export function PremiumScreenClient() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Car className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                    <Car className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                     <span>
                       {plan.maxVehicles === -1 ? (
                         <strong>Unlimited</strong>
@@ -499,7 +532,7 @@ export function PremiumScreenClient() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                    <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                     <span>
                       {plan.maxFamilyMembers === 0 ? (
                         <span className="text-slate-400">Single User Account</span>
@@ -534,14 +567,14 @@ export function PremiumScreenClient() {
                             className={`mt-0.5 p-0.5 rounded-full shrink-0 ${
                               featIncluded
                                 ? featHighlight
-                                  ? "bg-brand-100 dark:bg-brand-950/80 text-brand-600 dark:text-brand-400"
-                                  : "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                                  ? "bg-theme-accent-subtle text-theme-accent border border-theme-accent/30"
+                                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                : "bg-slate-100 dark:bg-charcoal-800 text-slate-400"
                             }`}
                           >
                             <Check className="w-3 h-3" />
                           </div>
-                          <span className={featHighlight ? "font-semibold text-brand-700 dark:text-brand-300" : ""}>
+                          <span className={featHighlight ? "font-semibold text-theme-accent" : ""}>
                             {featName}
                           </span>
                         </li>
@@ -556,15 +589,15 @@ export function PremiumScreenClient() {
                 {isCurrent ? (
                   <Button
                     variant="outline"
-                    className="w-full justify-center text-xs font-semibold py-2.5 bg-slate-50 dark:bg-slate-800 cursor-default"
+                    className="w-full justify-center text-xs font-semibold py-2.5 bg-slate-50 dark:bg-charcoal-800 cursor-default border-slate-200 dark:border-white/10"
                     disabled
                   >
                     Current Active Plan
                   </Button>
                 ) : (
                   <Button
-                    variant={plan.isPopular ? "primary" : "secondary"}
-                    className="w-full justify-center text-xs font-semibold py-2.5"
+                    variant={plan.isPopular ? "gold" : "secondary"}
+                    className="w-full justify-center text-xs font-bold py-2.5 shadow-sm"
                     disabled={updatingTier !== null}
                     isLoading={updatingTier === plan.plan}
                     onClick={() => handleSubscribe(plan.plan)}
@@ -579,9 +612,9 @@ export function PremiumScreenClient() {
       </div>
 
       {/* Trust & Guarantee Banner */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/60 dark:to-slate-800/40 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+      <div className="glass-panel p-6 rounded-2xl border border-theme-border shadow-glass-sm flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-theme-accent-subtle text-theme-accent border border-theme-accent/25 flex items-center justify-center shrink-0 shadow-xs">
             <Shield className="w-6 h-6" />
           </div>
           <div>
@@ -594,7 +627,7 @@ export function PremiumScreenClient() {
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-          <RefreshCw className="w-4 h-4 text-brand-500" />
+          <RefreshCw className="w-4 h-4 text-emerald-500" />
           <span>Instant Activation</span>
         </div>
       </div>

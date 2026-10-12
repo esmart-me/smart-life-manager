@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { SubscriptionsClient, SubscriptionDTO } from "@/components/admin/SubscriptionsClient";
-import { getAuthoritativePlanPrice } from "@/lib/plans/regional-pricing";
+import { getAuthoritativePlanPrice, ensureDefaultRegionalPricings } from "@/lib/plans/regional-pricing";
 import { requireAdmin } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -18,13 +18,28 @@ export default async function AdminSubscriptionsPage() {
     },
   });
 
+  // Pre-seed regional pricings once before parallel user mapping to guarantee clean concurrency
+  await ensureDefaultRegionalPricings().catch((err: any) => {
+    console.warn("[Admin Subscriptions] Pre-seed warning:", err);
+  });
+
   const subDTOs: SubscriptionDTO[] = await Promise.all(
     users.map(async (u) => {
       const plan = u.userSubscription?.plan || "free";
       const region = u.profile?.country || "US";
       const interval = (u.userSubscription?.billingInterval as any) || "monthly";
 
-      const priceInfo = await getAuthoritativePlanPrice(plan, region, interval);
+      let priceInfo = {
+        amount: 0,
+        currency: "USD",
+        currencySymbol: "$",
+        regionCode: region,
+      };
+      try {
+        priceInfo = await getAuthoritativePlanPrice(plan, region, interval);
+      } catch (priceErr) {
+        console.warn(`[Admin Subscriptions] Price lookup fallback for user ${u.id}:`, priceErr);
+      }
 
       return {
         id: u.userSubscription?.id || `sub_${u.id}`,

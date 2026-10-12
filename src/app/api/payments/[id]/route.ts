@@ -66,7 +66,28 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { title, payee, amount, currency, dueDate, category, frequency, isRecurring, notes, isPaid } = body;
+    const {
+      title,
+      payee,
+      amount,
+      currency,
+      dueDate,
+      category,
+      frequency,
+      isRecurring,
+      notes,
+      isPaid,
+      loanCategory,
+      bankName,
+      accountRef,
+      principalAmount,
+      interestRate,
+      totalTenureMonths,
+      paidTenureMonths,
+      loanStartDate,
+      loanClosingDate,
+      reminderLeadDays,
+    } = body;
 
     const dataToUpdate: Record<string, unknown> = {};
 
@@ -106,6 +127,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (currency !== undefined) dataToUpdate.currency = String(currency).trim();
     if (category !== undefined) dataToUpdate.category = String(category).trim();
     if (notes !== undefined) dataToUpdate.notes = notes ? String(notes).trim() : null;
+
+    if (loanCategory !== undefined) dataToUpdate.loanCategory = loanCategory ? String(loanCategory).trim() : null;
+    if (bankName !== undefined) dataToUpdate.bankName = bankName ? String(bankName).trim() : null;
+    if (accountRef !== undefined) dataToUpdate.accountRef = accountRef ? String(accountRef).trim() : null;
+    if (principalAmount !== undefined) dataToUpdate.principalAmount = principalAmount !== null && principalAmount !== "" ? Number(principalAmount) : null;
+    if (interestRate !== undefined) dataToUpdate.interestRate = interestRate !== null && interestRate !== "" ? Number(interestRate) : null;
+    if (totalTenureMonths !== undefined) dataToUpdate.totalTenureMonths = totalTenureMonths !== null && totalTenureMonths !== "" ? Number(totalTenureMonths) : null;
+    if (paidTenureMonths !== undefined) dataToUpdate.paidTenureMonths = paidTenureMonths !== null && paidTenureMonths !== "" ? Number(paidTenureMonths) : 0;
+    if (loanStartDate !== undefined) dataToUpdate.loanStartDate = loanStartDate ? new Date(loanStartDate) : null;
+    if (loanClosingDate !== undefined) dataToUpdate.loanClosingDate = loanClosingDate ? new Date(loanClosingDate) : null;
+    if (reminderLeadDays !== undefined) dataToUpdate.reminderLeadDays = reminderLeadDays ? Number(reminderLeadDays) : 3;
 
     if (frequency !== undefined || isRecurring !== undefined) {
       const recurring =

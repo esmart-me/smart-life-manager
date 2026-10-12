@@ -19,6 +19,7 @@ import {
   Lock,
   CheckCircle2,
   QrCode,
+  Sliders,
 } from "lucide-react";
 import { useState } from "react";
 import { SessionUser } from "@/types";
@@ -36,6 +37,7 @@ export const ADMIN_NAV_ITEMS = [
   { label: "Payments", href: "/admin/payments", icon: Receipt },
   { label: "Payment Settings", href: "/admin/payments/settings", icon: QrCode },
   { label: "Plans & Regional Pricing", href: "/admin/plans", icon: Sparkles },
+  { label: "System & AI Settings", href: "/admin/settings", icon: Sliders },
   { label: "Security & Audit Log", href: "/admin/audit", icon: ShieldCheck },
 ];
 
@@ -117,9 +119,9 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="lg:hidden flex items-center justify-between p-3.5 bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40">
+      <div className="lg:hidden flex items-center justify-between p-3.5 glass-panel border-b border-theme-border text-theme-text-primary sticky top-0 z-40">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+          <div className="w-7 h-7 rounded-lg btn-theme-accent flex items-center justify-center text-white shadow-theme-glow">
             <ShieldAlert className="w-4 h-4" />
           </div>
           <span className="font-bold text-xs tracking-wide">ADMIN PORTAL</span>
@@ -128,7 +130,7 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+          className="p-1.5 rounded-lg text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-glass-subtle"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -144,22 +146,22 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 glass-panel border-r border-theme-border flex flex-col justify-between transition-transform duration-200 lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col flex-1 overflow-y-auto">
           {/* Brand Header */}
-          <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+          <div className="p-5 border-b border-theme-border flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-indigo-900/50">
+              <div className="w-8 h-8 rounded-xl btn-theme-accent flex items-center justify-center text-white shadow-theme-glow font-bold">
                 <ShieldAlert className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-xs font-bold text-white tracking-wider uppercase">
+                <h2 className="text-xs font-bold text-theme-text-primary tracking-wider uppercase">
                   Admin Portal
                 </h2>
-                <span className="text-[10px] text-indigo-400 font-mono">
+                <span className="text-[10px] text-theme-accent font-mono font-semibold">
                   Smart Life Core
                 </span>
               </div>
@@ -167,15 +169,15 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
           </div>
 
           {/* Admin User Info Card */}
-          <div className="p-3 mx-3 my-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-bold text-xs">
+          <div className="p-3 mx-3 my-3 rounded-2xl glass-card border border-theme-border flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-theme-accent-subtle text-theme-accent border border-theme-accent/30 flex items-center justify-center font-bold text-xs">
               {admin.displayName?.charAt(0) || "A"}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate">
+              <p className="text-xs font-semibold text-theme-text-primary truncate">
                 {admin.displayName || admin.email}
               </p>
-              <span className="text-[10px] text-indigo-400 uppercase font-mono tracking-wider font-semibold">
+              <span className="text-[10px] text-theme-accent uppercase font-mono tracking-wider font-semibold">
                 {admin.role}
               </span>
             </div>
@@ -197,15 +199,15 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                     isActive
-                      ? "bg-indigo-600 text-white font-semibold shadow-xs shadow-indigo-600/30"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-theme-accent-subtle text-theme-accent font-semibold shadow-xs border border-theme-accent/30"
+                      : "text-theme-text-secondary hover:text-theme-text-primary hover:bg-theme-glass-subtle border border-transparent"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <Icon className="w-4 h-4 shrink-0" />
                     <span>{item.label}</span>
                   </div>
-                  {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-70" />}
+                  {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-70 text-theme-accent" />}
                 </Link>
               );
             })}
@@ -213,11 +215,12 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3 border-t border-slate-800 space-y-1 bg-slate-950/40">
+        <div className="p-3 border-t border-theme-border space-y-1 bg-transparent">
+
           <button
             type="button"
             onClick={() => setShowPasswordModal(true)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/30 transition-colors text-left"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-theme-accent hover:bg-theme-accent-subtle transition-colors text-left"
           >
             <KeyRound className="w-3.5 h-3.5" />
             <span>Change Password</span>
@@ -225,7 +228,7 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
 
           <Link
             href="/"
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-theme-text-secondary hover:text-theme-text-primary hover:bg-theme-glass-subtle transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Customer App</span>
@@ -244,22 +247,22 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
 
       {/* Admin Change Password Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl p-6 space-y-4 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md glass-elevated rounded-2xl border border-theme-border shadow-2xl p-6 space-y-4 text-xs animate-modal-pop">
             <button
               onClick={() => setShowPasswordModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              className="absolute top-4 right-4 text-theme-text-muted hover:text-theme-text-primary p-1 rounded-lg hover:bg-theme-glass-subtle"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <div className="w-10 h-10 rounded-xl bg-theme-accent-subtle border border-theme-accent/30 flex items-center justify-center text-theme-accent">
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Change Master Password</h3>
-                <p className="text-slate-400 font-mono text-[11px]">{admin.email}</p>
+                <h3 className="text-base font-bold text-theme-text-primary">Change Master Password</h3>
+                <p className="text-theme-text-muted font-mono text-[11px]">{admin.email}</p>
               </div>
             </div>
 
@@ -278,52 +281,52 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
 
             <form onSubmit={handleChangePassword} className="space-y-3.5">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-theme-text-secondary mb-1">
                   Current Master Password
                 </label>
                 <div className="relative">
-                  <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+                  <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-theme-text-muted" />
                   <Input
                     type="password"
                     required
                     placeholder="••••••••••••"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="pl-8 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 text-xs"
+                    className="pl-8 glass-input border-theme-border text-theme-text-primary placeholder:text-theme-text-muted text-xs focus:ring-theme-accent/50 focus:border-theme-accent/40"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-theme-text-secondary mb-1">
                   New Password (Minimum 8 characters)
                 </label>
                 <div className="relative">
-                  <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+                  <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-theme-text-muted" />
                   <Input
                     type="password"
                     required
                     placeholder="••••••••••••"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="pl-8 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 text-xs"
+                    className="pl-8 glass-input border-theme-border text-theme-text-primary placeholder:text-theme-text-muted text-xs focus:ring-theme-accent/50 focus:border-theme-accent/40"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-theme-text-secondary mb-1">
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+                  <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-theme-text-muted" />
                   <Input
                     type="password"
                     required
                     placeholder="••••••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-8 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 text-xs"
+                    className="pl-8 glass-input border-theme-border text-theme-text-primary placeholder:text-theme-text-muted text-xs focus:ring-theme-accent/50 focus:border-theme-accent/40"
                   />
                 </div>
               </div>
@@ -334,7 +337,7 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowPasswordModal(false)}
-                  className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  className="border-theme-border text-theme-text-secondary hover:bg-theme-glass-subtle"
                 >
                   Cancel
                 </Button>
@@ -343,7 +346,7 @@ export function AdminSidebar({ admin }: AdminSidebarProps) {
                   size="sm"
                   variant="primary"
                   isLoading={isChangingPassword}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                  className="btn-theme-accent text-white font-bold"
                 >
                   Update Master Password
                 </Button>

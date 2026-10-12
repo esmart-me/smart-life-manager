@@ -15,6 +15,8 @@ import {
   Edit2,
   Trash2,
   RotateCcw,
+  AlarmClock,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -65,6 +67,19 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
 
   // Optimistic completion state map
   const [completingIds, setCompletingIds] = useState<Record<string, boolean>>({});
+
+  // Snooze state
+  const [snoozingId, setSnoozingId] = useState<string | null>(null);
+  const [snoozeLoading, setSnoozeLoading] = useState<Record<string, boolean>>({});
+  const [customSnoozeMin, setCustomSnoozeMin] = useState(15);
+  const [showCustomSnoozeId, setShowCustomSnoozeId] = useState<string | null>(null);
+
+  const SNOOZE_OPTS = [
+    { label: "5 min", minutes: 5 },
+    { label: "10 min", minutes: 10 },
+    { label: "30 min", minutes: 30 },
+    { label: "1 hr", minutes: 60 },
+  ];
 
   // Dynamic tab counts calculation
   const tabCounts = useMemo(() => {
@@ -154,6 +169,31 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
     }
   };
 
+  // Snooze
+  const handleSnooze = async (id: string, minutes: number) => {
+    setSnoozeLoading((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await fetch(`/api/reminders/${id}/snooze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ minutes }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(data.message || `Reminder snoozed for ${minutes} minute(s).`);
+        setSnoozingId(null);
+        setShowCustomSnoozeId(null);
+        router.refresh();
+      } else {
+        showToast("Failed to snooze reminder.");
+      }
+    } catch {
+      showToast("Failed to snooze reminder.");
+    } finally {
+      setSnoozeLoading((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   const handleOpenAdd = () => {
     setSelectedReminder(null);
     setIsFormOpen(true);
@@ -230,18 +270,18 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border active:scale-95 ${
                 isActive
-                  ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 shadow-sm"
-                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                  ? "btn-theme-accent text-white shadow-theme-glow border-white/20"
+                  : "glass-card text-theme-text-secondary border-theme-border hover:border-theme-accent/30 hover:text-theme-text-primary"
               }`}
             >
               <span>{tab.label}</span>
               <span
                 className={`px-2 py-0.5 rounded-full text-[11px] ${
                   isActive
-                    ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    ? "bg-black/25 text-white"
+                    : "bg-theme-glass-subtle text-theme-text-muted"
                 }`}
               >
                 {tab.count}
@@ -252,9 +292,9 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
       </div>
 
       {/* Search & Category Filter Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 glass-panel p-3 rounded-2xl border border-theme-border">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-theme-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
           <Input
             type="text"
             value={searchQuery}
@@ -269,7 +309,7 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="glass-input w-full px-3 py-2 text-xs rounded-xl border border-theme-border text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
             >
               <option value="all">All Categories</option>
               {REMINDER_CATEGORIES.map((cat) => (
@@ -339,12 +379,12 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
             return (
               <div
                 key={rem.id}
-                className={`p-4 rounded-xl border transition-all ${
+                className={`p-4 rounded-2xl border transition-all ${
                   isCompleted
-                    ? "bg-slate-50/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75"
+                    ? "glass-subtle opacity-75 border-slate-200/50 dark:border-white/5"
                     : rem.isOverdue
-                    ? "bg-rose-50/30 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 shadow-xs"
-                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+                    ? "glass-card border-rose-300/40 dark:border-rose-900/50 shadow-xs"
+                    : "glass-card glass-card-hover border-slate-200/80 dark:border-white/10 shadow-xs"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -448,6 +488,25 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
                       </button>
                     )}
 
+                    {/* Snooze button — only for pending reminders */}
+                    {!isCompleted && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSnoozingId(snoozingId === rem.id ? null : rem.id);
+                          setShowCustomSnoozeId(null);
+                        }}
+                        className={`p-1.5 rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                          snoozingId === rem.id
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-slate-400 hover:text-amber-600"
+                        }`}
+                        title="Snooze reminder"
+                      >
+                        <AlarmClock className="w-4 h-4" />
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => handleDelete(rem.id)}
@@ -458,6 +517,65 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
                     </button>
                   </div>
                 </div>
+
+                {/* Snooze Picker — inline expansion */}
+                {snoozingId === rem.id && !isCompleted && (
+                  <div className="mt-2 pl-8 space-y-2 border-t border-slate-100 dark:border-slate-800 pt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <AlarmClock className="w-3 h-3" />
+                      Snooze for:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {SNOOZE_OPTS.map((opt) => (
+                        <button
+                          key={opt.minutes}
+                          type="button"
+                          disabled={snoozeLoading[rem.id]}
+                          onClick={() => handleSnooze(rem.id, opt.minutes)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700
+                            bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/60
+                            hover:border-amber-400 text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50"
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomSnoozeId(showCustomSnoozeId === rem.id ? null : rem.id)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600
+                          text-slate-500 hover:border-amber-400 transition-colors flex items-center gap-1"
+                      >
+                        Custom
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {showCustomSnoozeId === rem.id && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={43200}
+                          value={customSnoozeMin}
+                          onChange={(e) => setCustomSnoozeMin(Math.max(1, parseInt(e.target.value, 10) || 15))}
+                          className="w-20 px-2 py-1 text-xs rounded-lg border border-slate-300 dark:border-slate-700
+                            bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        />
+                        <span className="text-xs text-slate-500">min</span>
+                        <button
+                          type="button"
+                          disabled={snoozeLoading[rem.id]}
+                          onClick={() => handleSnooze(rem.id, customSnoozeMin)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-600
+                            text-white transition-colors disabled:opacity-50"
+                        >
+                          Snooze
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             );
           })}

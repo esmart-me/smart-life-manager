@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { generateReport, ReportType } from "@/lib/reports/report-generator";
 import { generateCSV, generatePrintableHTML, generateWhatsAppText } from "@/lib/reports/export-formatters";
+import { checkFeatureAccess } from "@/lib/plans/plan-service";
 
 interface RouteParams {
   params: Promise<{ type: string }>;
@@ -46,6 +47,23 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   try {
     const reportData = await generateReport(user.id, type as ReportType, { month });
+
+    // Server-side entitlement check: CSV and PDF export require Premium
+    if (format === "csv" || format === "html") {
+      const exportCheck = await checkFeatureAccess(user.id, "export_reports");
+      if (!exportCheck.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "PREMIUM_REQUIRED",
+              message: exportCheck.reason || "Report exports require an active Premium subscription.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     // 1. CSV Download Format
     if (format === "csv") {

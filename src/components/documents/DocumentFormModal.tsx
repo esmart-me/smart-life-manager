@@ -198,18 +198,18 @@ export function DocumentFormModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 my-8 overflow-hidden">
+      <div className="relative w-full max-w-2xl glass-elevated rounded-2xl shadow-2xl border border-theme-border my-8 overflow-hidden animate-modal-pop">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-theme-border glass-panel">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-400 rounded-lg">
+            <div className="p-2 bg-theme-accent-subtle text-theme-accent border border-theme-accent/20 rounded-xl">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              <h2 className="text-base font-bold text-theme-text-primary">
                 {isEditing ? "Edit Document" : "Add New Document"}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-theme-text-muted">
                 Securely store identity documents, licences, certificates, and warranties.
               </p>
             </div>
@@ -218,7 +218,7 @@ export function DocumentFormModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-glass-subtle transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
