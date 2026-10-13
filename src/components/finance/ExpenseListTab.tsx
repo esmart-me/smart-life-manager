@@ -41,6 +41,7 @@ interface ExpenseListTabProps {
   onAddExpense: () => void;
   onEditExpense: (expense: ExpenseFormData) => void;
   onRefresh: () => void;
+  onDeleteExpense?: (id: string) => void;
 }
 
 export function ExpenseListTab({
@@ -49,6 +50,7 @@ export function ExpenseListTab({
   onAddExpense,
   onEditExpense,
   onRefresh,
+  onDeleteExpense,
 }: ExpenseListTabProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [methodFilter, setMethodFilter] = useState<string>("all");
@@ -88,6 +90,9 @@ export function ExpenseListTab({
       const res = await fetch(`/api/expenses/${expense.id}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok && data.success) {
+        if (onDeleteExpense) {
+          onDeleteExpense(expense.id);
+        }
         onRefresh();
       } else {
         alert(data.error?.message || "Failed to delete expense");

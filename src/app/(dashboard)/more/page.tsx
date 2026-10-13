@@ -3,6 +3,8 @@ import Link from "next/link";
 import {
   Car,
   Calendar,
+  CalendarDays,
+  Package,
   Users,
   Settings,
   Shield,
@@ -14,6 +16,9 @@ import {
   Sparkles,
   Calculator,
   Globe,
+  Activity,
+  Compass,
+  BookOpen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
@@ -82,6 +87,46 @@ export default async function MorePage() {
     {
       title: "Connected Life Modules",
       items: [
+        {
+          title: "Daily Life Planner",
+          description: "Chronological daily timeline connecting tasks, appointments, bills, and deadlines",
+          href: "/planner",
+          icon: CalendarDays,
+          badge: "New",
+          variant: "success" as const,
+        },
+        {
+          title: "Home Inventory & Warranty",
+          description: "Track appliances, electronics, serial numbers, warranty alerts, and service logs",
+          href: "/inventory",
+          icon: Package,
+          badge: "New",
+          variant: "success" as const,
+        },
+        {
+          title: "Wellness & Habit Tracker",
+          description: "Habit streaks, daily check-in vitals, sleep hours, water tracking, and personal well-being",
+          href: "/wellness",
+          icon: Activity,
+          badge: "New",
+          variant: "success" as const,
+        },
+        {
+          title: "Travel & Trip Organizer",
+          description: "Vacation planning, flight & hotel itineraries, packing checklist, and trip budgets",
+          href: "/travel",
+          icon: Compass,
+          badge: "New",
+          variant: "success" as const,
+        },
+        {
+          title: "Personal Knowledge Wallet",
+          description: "Private notes, reference collections, tags, procedures, and encrypted personal vault",
+          href: "/knowledge",
+          icon: BookOpen,
+          badge: "New",
+          variant: "success" as const,
+        },
         {
           title: "Vehicles & Assets",
           description: "Registration, insurance renewals, service alerts, and maintenance logs",

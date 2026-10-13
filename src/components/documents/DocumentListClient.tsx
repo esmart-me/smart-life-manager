@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -26,7 +26,7 @@ import { DocumentStatusBadge } from "./DocumentStatusBadge";
 import { DocumentFormModal, DocumentFormData } from "./DocumentFormModal";
 import { DocumentDetailModal, DocumentDetailData } from "./DocumentDetailModal";
 import { DOCUMENT_TYPES } from "@/lib/documents/constants";
-import { DocumentStatusInfo } from "@/lib/documents/status";
+import { DocumentStatusInfo, calculateDocumentStatus } from "@/lib/documents/status";
 
 export type FilterStatusType = "ALL" | "VALID" | "EXPIRING_SOON" | "CRITICAL" | "EXPIRED";
 
@@ -57,6 +57,13 @@ interface DocumentListClientProps {
 export function DocumentListClient({ initialDocuments }: DocumentListClientProps) {
   const router = useRouter();
 
+  // Primary documents list state synchronized with server props
+  const [documents, setDocuments] = useState<DocumentListItem[]>(initialDocuments);
+
+  useEffect(() => {
+    setDocuments(initialDocuments);
+  }, [initialDocuments]);
+
   // Search & filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatusType>("ALL");
@@ -78,14 +85,14 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
   // Status Counts calculation for quick summary pills
   const statusCounts = useMemo(() => {
     const counts = {
-      ALL: initialDocuments.length,
+      ALL: documents.length,
       VALID: 0,
       EXPIRING_SOON: 0,
       CRITICAL: 0,
       EXPIRED: 0,
     };
 
-    initialDocuments.forEach((doc) => {
+    documents.forEach((doc) => {
       const s = doc.statusInfo.status;
       if (s === "VALID") counts.VALID++;
       else if (s === "EXPIRING_SOON") counts.EXPIRING_SOON++;
@@ -94,11 +101,11 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
     });
 
     return counts;
-  }, [initialDocuments]);
+  }, [documents]);
 
   // Filtered & Searched Documents
   const filteredDocuments = useMemo(() => {
-    return initialDocuments.filter((doc) => {
+    return documents.filter((doc) => {
       // 1. Status Filter
       if (statusFilter !== "ALL" && doc.statusInfo.status !== statusFilter) {
         return false;
@@ -123,7 +130,7 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
 
       return true;
     });
-  }, [initialDocuments, statusFilter, typeFilter, searchQuery]);
+  }, [documents, statusFilter, typeFilter, searchQuery]);
 
   const handleOpenAdd = () => {
     setFormInitialData(null);
@@ -156,6 +163,7 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
     });
     if (res.ok) {
       showToast("Document deleted successfully.");
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
       router.refresh();
     }
   };
@@ -575,8 +583,31 @@ export function DocumentListClient({ initialDocuments }: DocumentListClientProps
       <DocumentFormModal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        onSuccess={() => {
+        onSuccess={(savedDoc) => {
           showToast(formInitialData?.id ? "Document updated successfully!" : "Document saved successfully!");
+          if (savedDoc && savedDoc.id) {
+            const formattedItem: DocumentListItem = {
+              id: savedDoc.id,
+              title: savedDoc.title,
+              category: savedDoc.category,
+              documentNumber: savedDoc.documentNumber,
+              issuedBy: savedDoc.issuedBy,
+              issueDate: savedDoc.issueDate ? new Date(savedDoc.issueDate).toISOString() : null,
+              expiryDate: savedDoc.expiryDate ? new Date(savedDoc.expiryDate).toISOString() : null,
+              hasExpiry: Boolean(savedDoc.hasExpiry),
+              notes: savedDoc.notes,
+              createdAt: savedDoc.createdAt ? new Date(savedDoc.createdAt).toISOString() : new Date().toISOString(),
+              statusInfo: savedDoc.statusInfo || calculateDocumentStatus(savedDoc.expiryDate ? new Date(savedDoc.expiryDate) : null),
+              files: savedDoc.files || [],
+            };
+            setDocuments((prev) => {
+              const exists = prev.some((d) => d.id === formattedItem.id);
+              if (exists) {
+                return prev.map((d) => (d.id === formattedItem.id ? formattedItem : d));
+              }
+              return [formattedItem, ...prev];
+            });
+          }
           router.refresh();
         }}
         initialData={formInitialData}

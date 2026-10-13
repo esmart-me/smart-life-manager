@@ -11,6 +11,12 @@ import {
   Car,
   RefreshCw,
   Calendar,
+  CalendarDays,
+  Package,
+  Users,
+  Activity,
+  Compass,
+  BookOpen,
   ExternalLink,
   ChevronRight,
   Filter,
@@ -23,13 +29,19 @@ import { SearchCategory, SearchResultItem, GlobalSearchResponse } from "@/lib/se
 
 const CATEGORY_TABS: Array<{ id: SearchCategory; label: string; icon: any }> = [
   { id: "all", label: "All Items", icon: Sparkles },
+  { id: "planner", label: "Planner", icon: CalendarDays },
+  { id: "inventory", label: "Inventory", icon: Package },
   { id: "documents", label: "Documents", icon: FileText },
   { id: "reminders", label: "Reminders", icon: Bell },
   { id: "payments", label: "Payments", icon: Wallet },
   { id: "expenses", label: "Expenses", icon: Wallet },
-  { id: "vehicles", label: "Vehicles", icon: Car },
   { id: "subscriptions", label: "Subscriptions", icon: RefreshCw },
+  { id: "vehicles", label: "Vehicles", icon: Car },
   { id: "dates", label: "Important Dates", icon: Calendar },
+  { id: "family", label: "Family", icon: Users },
+  { id: "wellness", label: "Wellness", icon: Activity },
+  { id: "travel", label: "Travel", icon: Compass },
+  { id: "knowledge", label: "Knowledge", icon: BookOpen },
 ];
 
 export function GlobalSearchPageClient() {
@@ -74,6 +86,12 @@ export function GlobalSearchPageClient() {
     vehicles: 0,
     subscriptions: 0,
     dates: 0,
+    planner: 0,
+    inventory: 0,
+    family: 0,
+    wellness: 0,
+    travel: 0,
+    knowledge: 0,
   };
 
   return (

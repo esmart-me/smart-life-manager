@@ -9,6 +9,8 @@ import {
   Wallet,
   Car,
   Calendar,
+  CalendarDays,
+  Package,
   Users,
   Settings,
   User,
@@ -21,6 +23,9 @@ import {
   Search,
   Sparkles,
   Calculator,
+  Activity,
+  Compass,
+  BookOpen,
 } from "lucide-react";
 import { DESKTOP_NAV_ITEMS, DESKTOP_SECONDARY_NAV } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -30,7 +35,12 @@ import { performCustomerLogout } from "@/lib/auth/client-logout";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
+  CalendarDays,
   FileText,
+  Package,
+  Activity,
+  Compass,
+  BookOpen,
   Bell,
   Wallet,
   BarChart3,

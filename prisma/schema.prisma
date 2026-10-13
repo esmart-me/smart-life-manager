@@ -53,6 +53,20 @@ model User {
   investments       Investment[]
   healthProfiles    HealthProfile[]
   healthInsurances  HealthInsurance[]
+  plannerTasks      PlannerTask[]
+  inventoryItems    InventoryItem[]
+  inventoryServiceLogs InventoryServiceLog[]
+  familyEvents         FamilyEvent[]
+  familyTasks          FamilyTask[]
+  familyShoppingItems  FamilyShoppingItem[]
+  habits               Habit[]
+  habitLogs            HabitLog[]
+  wellnessLogs         WellnessLog[]
+  trips                Trip[]
+  tripItineraries      TripItinerary[]
+  tripPackingItems     TripPackingItem[]
+  knowledgeCollections KnowledgeCollection[]
+  knowledgeNotes       KnowledgeNote[]
 
   @@index([email])
 }
@@ -142,6 +156,10 @@ model UserSetting {
   // Customer Onboarding state
   onboardingCompleted  Boolean  @default(false)
   onboardingStep       Int      @default(1)
+
+  // Daily Life Planner Briefing Settings (Phase 3)
+  dailyBriefingEnabled Boolean  @default(true)
+  dailyBriefingTime    String   @default("08:00")
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -339,23 +357,29 @@ model Vehicle {
 // 10. Subscriptions
 // -------------------------------------------------------------
 model Subscription {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name            String
   cost            Float
-  currency        String   @default("USD")
-  billingCycle    String   @default("monthly") // "monthly" | "yearly" | "weekly" | "quarterly"
+  currency        String    @default("USD")
+  billingCycle    String    @default("monthly") // "monthly" | "yearly" | "weekly" | "quarterly"
   nextBillingDate DateTime
-  renewalStatus   String   @default("active")  // "active" | "cancelled" | "paused"
-  category        String   @default("entertainment")
+  renewalStatus   String    @default("active")  // "active" | "cancelled" | "paused" | "trial" | "expired"
+  category        String    @default("entertainment")
+  startDate       DateTime?
+  trialEndDate    DateTime?
+  cancellationDate DateTime?
+  websiteUrl      String?
+  isArchived      Boolean   @default(false)
   notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([userId])
   @@index([nextBillingDate])
   @@index([renewalStatus])
+  @@index([isArchived])
 }
 
 // -------------------------------------------------------------
@@ -394,6 +418,7 @@ model FamilyMember {
   email            String?
   notes            String?
   healthProfile    HealthProfile?
+  familyEvents     FamilyEvent[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -789,5 +814,325 @@ model HealthInsurance {
   @@index([expiryDate])
 }
 
+// -------------------------------------------------------------
+// 23. Daily Life Planner Tasks & Appointments (Phase 3)
+// -------------------------------------------------------------
+model PlannerTask {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  itemType    String    @default("task") // "task" | "appointment"
+  date        DateTime
+  startTime   String?   // "HH:mm" (24-hour format)
+  endTime     String?   // "HH:mm" (24-hour format)
+  location    String?
+  priority    String    @default("medium") // "low" | "medium" | "high" | "urgent"
+  category    String    @default("personal") // "work" | "personal" | "health" | "family" | "errand" | "appointment"
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
+  @@index([userId])
+  @@index([date])
+  @@index([isCompleted])
+  @@index([itemType])
+}
+
+// -------------------------------------------------------------
+// 24. Home Inventory & Warranty Manager (Phase 3)
+// -------------------------------------------------------------
+model InventoryItem {
+  id             String                @id @default(cuid())
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  category       String                @default("electronics") // "appliances" | "electronics" | "furniture" | "tools" | "smart_home" | "other"
+  brand          String?
+  modelNumber    String?
+  serialNumber   String?
+  purchaseDate   DateTime?
+  purchasePrice  Float?
+  currency       String                @default("USD")
+  retailer       String?
+  location       String?               // e.g. "Kitchen", "Living Room", "Office", "Garage"
+  warrantyStart  DateTime?
+  warrantyExpiry DateTime?
+  warrantyNotes  String?
+  receiptUrl     String?
+  photoUrl       String?
+  notes          String?
+  isArchived     Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  serviceLogs    InventoryServiceLog[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([warrantyExpiry])
+  @@index([isArchived])
+}
+
+model InventoryServiceLog {
+  id              String        @id @default(cuid())
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceDate     DateTime
+  description     String
+  provider        String?
+  cost            Float?
+  currency        String        @default("USD")
+  nextServiceDate DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([inventoryItemId])
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// 25. Family Organizer (Shared Events, Tasks, Shopping)
+// -------------------------------------------------------------
+model FamilyEvent {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyMemberId String?
+  familyMember   FamilyMember? @relation(fields: [familyMemberId], references: [id], onDelete: SetNull)
+  title          String
+  description    String?
+  eventDate      DateTime
+  endDate        DateTime?
+  startTime      String?
+  endTime        String?
+  location       String?
+  category       String        @default("general") // "celebration" | "school" | "medical" | "gathering" | "general"
+  isAllDay       Boolean       @default(false)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([eventDate])
+  @@index([familyMemberId])
+}
+
+model FamilyTask {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedMemberId   String?
+  assignedMemberName String?
+  title              String
+  description        String?
+  dueDate            DateTime?
+  priority           String    @default("medium") // "low" | "medium" | "high" | "urgent"
+  status             String    @default("pending") // "pending" | "in_progress" | "completed" | "cancelled"
+  category           String    @default("household") // "household" | "chores" | "errand" | "school" | "finance"
+  isCompleted        Boolean   @default(false)
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([dueDate])
+  @@index([isCompleted])
+}
+
+model FamilyShoppingItem {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedMemberName String?
+  item               String
+  quantity           String?
+  category           String    @default("groceries") // "groceries" | "home" | "pharmacy" | "kids" | "other"
+  isPurchased        Boolean   @default(false)
+  estimatedCost      Float?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([isPurchased])
+}
+
+// -------------------------------------------------------------
+// 26. Wellness & Habit Tracker
+// -------------------------------------------------------------
+model Habit {
+  id                String     @id @default(cuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?
+  category          String     @default("health") // "health" | "fitness" | "mindfulness" | "productivity" | "hydration" | "sleep"
+  frequency         String     @default("daily") // "daily" | "weekly"
+  targetDaysPerWeek Int        @default(7)
+  currentStreak     Int        @default(0)
+  bestStreak        Int        @default(0)
+  color             String     @default("emerald")
+  reminderTime      String?
+  isArchived        Boolean    @default(false)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  logs              HabitLog[]
+
+  @@index([userId])
+  @@index([isArchived])
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  completed Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([habitId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model WellnessLog {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime
+  sleepHours      Float?
+  waterGlasses    Int?
+  exerciseMinutes Int?
+  mood            String?   // "great" | "good" | "neutral" | "low" | "stressed"
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+// -------------------------------------------------------------
+// 27. Travel Organizer
+// -------------------------------------------------------------
+model Trip {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  destination     String
+  startDate       DateTime
+  endDate         DateTime
+  status          String            @default("planned") // "planned" | "active" | "completed" | "cancelled"
+  estimatedBudget Float?
+  actualCost      Float?
+  currency        String            @default("USD")
+  coverImage      String?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  itineraries     TripItinerary[]
+  packingItems    TripPackingItem[]
+
+  @@index([userId])
+  @@index([startDate])
+  @@index([status])
+}
+
+model TripItinerary {
+  id                  String   @id @default(cuid())
+  tripId              String
+  trip                Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayDate             DateTime
+  timeSlot            String?
+  activity            String
+  location            String?
+  bookingRef          String?
+  confirmationDetails String?
+  cost                Float?
+  category            String   @default("activity") // "flight" | "hotel" | "activity" | "transport" | "dining"
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tripId])
+  @@index([userId])
+  @@index([dayDate])
+}
+
+model TripPackingItem {
+  id        String   @id @default(cuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item      String
+  category  String   @default("essentials") // "essentials" | "clothes" | "electronics" | "documents" | "toiletries" | "other"
+  isPacked  Boolean  @default(false)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tripId])
+  @@index([userId])
+  @@index([isPacked])
+}
+
+// -------------------------------------------------------------
+// 28. Personal Knowledge Wallet
+// -------------------------------------------------------------
+model KnowledgeCollection {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  color       String          @default("indigo")
+  icon        String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  notes       KnowledgeNote[]
+
+  @@index([userId])
+}
+
+model KnowledgeNote {
+  id             String               @id @default(cuid())
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectionId   String?
+  collection     KnowledgeCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  title          String
+  content        String
+  tags           String?              // comma-separated
+  isPinned       Boolean              @default(false)
+  isFavorite     Boolean              @default(false)
+  isArchived     Boolean              @default(false)
+  sourceUrl      String?
+  attachmentName String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([isPinned])
+  @@index([isFavorite])
+  @@index([isArchived])
+  @@index([collectionId])
+}
 

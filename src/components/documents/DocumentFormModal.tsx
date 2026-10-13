@@ -34,7 +34,7 @@ export interface DocumentFormData {
 interface DocumentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedDoc?: any) => void;
   initialData?: DocumentFormData | null;
 }
 
@@ -182,7 +182,7 @@ export function DocumentFormModal({
         throw new Error(data.error?.message || "Failed to save document");
       }
 
-      onSuccess();
+      onSuccess(data.data?.document);
       onClose();
     } catch (err: unknown) {
       console.error("[DocumentForm Submit Error]:", err);

@@ -26,7 +26,11 @@ import { Button } from "@/components/ui/Button";
 import { FamilyRole } from "@/lib/plans/constants";
 import { UserPlanSummary } from "@/lib/plans/plan-service";
 import { HealthSection } from "./HealthSection";
+import { FamilyEventsSection } from "./FamilyEventsSection";
+import { FamilyTasksSection } from "./FamilyTasksSection";
+import { FamilyShoppingSection } from "./FamilyShoppingSection";
 import Link from "next/link";
+import { Calendar, CheckSquare, ShoppingCart } from "lucide-react";
 
 interface MemberItem {
   id: string;
@@ -51,7 +55,7 @@ interface FamilyGroupData {
 }
 
 export function FamilyHubClient() {
-  const [mainTab, setMainTab] = useState<"members" | "health">("members");
+  const [mainTab, setMainTab] = useState<"members" | "health" | "events" | "tasks" | "shopping">("members");
   const [group, setGroup] = useState<FamilyGroupData | null>(null);
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [planSummary, setPlanSummary] = useState<UserPlanSummary | null>(null);
@@ -367,31 +371,70 @@ export function FamilyHubClient() {
       )}
 
       {/* Circle Navigation Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
+      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6 overflow-x-auto pb-1 sm:pb-0">
         <button
           type="button"
           onClick={() => setMainTab("members")}
-          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
             mainTab === "members"
               ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Household Members & Roles ({members.length})</span>
+          <span>Members & Roles ({members.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab("events")}
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
+            mainTab === "events"
+              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          <span>Events & Calendar</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab("tasks")}
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
+            mainTab === "tasks"
+              ? "border-amber-600 text-amber-600 dark:border-amber-400 dark:text-amber-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <CheckSquare className="w-4 h-4" />
+          <span>Family Tasks & Chores</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab("shopping")}
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
+            mainTab === "shopping"
+              ? "border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <ShoppingCart className="w-4 h-4" />
+          <span>Shared Shopping List</span>
         </button>
 
         <button
           type="button"
           onClick={() => setMainTab("health")}
-          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors ${
+          className={`pb-3 text-xs font-semibold inline-flex items-center gap-2 border-b-2 transition-colors shrink-0 ${
             mainTab === "health"
               ? "border-rose-600 text-rose-600 dark:border-rose-400 dark:text-rose-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           <HeartPulse className="w-4 h-4" />
-          <span>Health Profiles & Insurance</span>
+          <span>Health Profiles</span>
         </button>
       </div>
 
@@ -595,6 +638,12 @@ export function FamilyHubClient() {
         </div>
       </div>
     </>
+  ) : mainTab === "events" ? (
+    <FamilyEventsSection />
+  ) : mainTab === "tasks" ? (
+    <FamilyTasksSection />
+  ) : mainTab === "shopping" ? (
+    <FamilyShoppingSection />
   ) : (
     <HealthSection familyMembers={members.map((m) => ({ id: m.id, name: m.name }))} />
   )}

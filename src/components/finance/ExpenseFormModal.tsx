@@ -30,7 +30,7 @@ export interface ExpenseFormData {
 interface ExpenseFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedExpense?: any) => void;
   initialData?: ExpenseFormData | null;
   userCurrency?: string;
 }
@@ -184,7 +184,7 @@ export function ExpenseFormModal({
         throw new Error(data.error?.message || "Failed to save expense.");
       }
 
-      onSuccess();
+      onSuccess(data.data?.expense);
       onClose();
     } catch (err: unknown) {
       console.error("[ExpenseForm Submit Error]:", err);

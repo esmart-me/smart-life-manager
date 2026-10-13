@@ -73,3 +73,5 @@ backups/
 dist-electron/
 *.blockmap
 
+# IDE metadata
+.kilo/

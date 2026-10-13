@@ -24,6 +24,12 @@ export async function GET(request: Request) {
     "vehicles",
     "subscriptions",
     "dates",
+    "planner",
+    "inventory",
+    "family",
+    "wellness",
+    "travel",
+    "knowledge",
   ];
 
   const selectedCategory = validCategories.includes(category) ? category : "all";

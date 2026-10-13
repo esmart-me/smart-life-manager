@@ -49,7 +49,7 @@ export interface ReminderFormData {
 interface ReminderFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedReminder?: any) => void;
   initialData?: ReminderFormData | null;
 }
 
@@ -221,7 +221,7 @@ export function ReminderFormModal({
         throw new Error(data.error?.message || "Failed to save reminder");
       }
 
-      onSuccess();
+      onSuccess(data.data?.reminder);
       onClose();
     } catch (err: unknown) {
       console.error("[ReminderForm Submit Error]:", err);

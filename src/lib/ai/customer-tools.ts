@@ -1139,6 +1139,234 @@ export function createCustomerDataTools(authenticatedUserId: string) {
         summary: `Family Circle: ${members.length} family member(s), ${emergencyContacts.length} designated emergency contact(s), ${groups.length} family group(s).`,
       };
     },
+
+    /**
+     * Retrieves upcoming Daily Life Planner tasks and appointments.
+     */
+    async getMyPlannerTasks() {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      const tasks = await prisma.plannerTask.findMany({
+        where: { userId: authenticatedUserId },
+        orderBy: { date: "asc" },
+      });
+
+      const upcoming = tasks.filter((t) => new Date(t.date) >= now);
+      const overdue = tasks.filter((t) => !t.isCompleted && new Date(t.date) < now);
+      const completed = tasks.filter((t) => t.isCompleted);
+
+      return {
+        total: tasks.length,
+        upcomingCount: upcoming.length,
+        overdueCount: overdue.length,
+        completedCount: completed.length,
+        tasks: tasks.slice(0, 30).map((t) => ({
+          id: t.id,
+          title: t.title,
+          itemType: t.itemType,
+          date: new Date(t.date).toISOString().slice(0, 10),
+          time: t.startTime ? `${t.startTime}${t.endTime ? ` - ${t.endTime}` : ""}` : "All day",
+          priority: t.priority,
+          category: t.category,
+          location: t.location || null,
+          isCompleted: t.isCompleted,
+        })),
+        summary: `Planner: ${tasks.length} total item(s) (${upcoming.length} upcoming, ${overdue.length} overdue, ${completed.length} completed).`,
+      };
+    },
+
+    /**
+     * Retrieves Home Inventory items and warranty expiration statuses.
+     * Note: Does not disclose sensitive serial numbers in public LLM responses.
+     */
+    async getMyHomeInventory() {
+      const items = await prisma.inventoryItem.findMany({
+        where: { userId: authenticatedUserId, isArchived: false },
+        orderBy: { createdAt: "desc" },
+        include: { serviceLogs: { orderBy: { serviceDate: "desc" }, take: 1 } },
+      });
+
+      const now = new Date();
+      let expiringSoon = 0;
+      let expired = 0;
+
+      const formatted = items.map((i) => {
+        let warrantyStatus = "No warranty recorded";
+        if (i.warrantyExpiry) {
+          const exp = new Date(i.warrantyExpiry);
+          const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays < 0) {
+            warrantyStatus = `Expired ${Math.abs(diffDays)} day(s) ago`;
+            expired++;
+          } else if (diffDays <= 30) {
+            warrantyStatus = `Expiring soon (${diffDays} days left)`;
+            expiringSoon++;
+          } else {
+            warrantyStatus = `Active (${diffDays} days left)`;
+          }
+        }
+
+        return {
+          id: i.id,
+          name: i.name,
+          category: i.category,
+          brand: i.brand || "Unknown",
+          modelNumber: i.modelNumber || null,
+          location: i.location || "Home",
+          warrantyStatus,
+          purchasePrice: i.purchasePrice ? `${i.currency} ${i.purchasePrice}` : null,
+          lastService: i.serviceLogs[0] ? new Date(i.serviceLogs[0].serviceDate).toISOString().slice(0, 10) : null,
+        };
+      });
+
+      return {
+        total: items.length,
+        expiringSoonCount: expiringSoon,
+        expiredCount: expired,
+        items: formatted,
+        summary: `Home Inventory: ${items.length} item(s) registered. ${expiringSoon} warranty expiring soon, ${expired} expired.`,
+      };
+    },
+
+    /**
+     * Retrieves Family Organizer calendar events, tasks, and shared shopping items.
+     */
+    async getMyFamilyOrganizer() {
+      const [events, tasks, shopping] = await Promise.all([
+        prisma.familyEvent.findMany({
+          where: { userId: authenticatedUserId },
+          orderBy: { eventDate: "asc" },
+        }),
+        prisma.familyTask.findMany({
+          where: { userId: authenticatedUserId },
+          orderBy: { dueDate: "asc" },
+        }),
+        prisma.familyShoppingItem.findMany({
+          where: { userId: authenticatedUserId, isPurchased: false },
+          orderBy: { createdAt: "desc" },
+        }),
+      ]);
+
+      return {
+        eventsCount: events.length,
+        tasksCount: tasks.length,
+        pendingShoppingCount: shopping.length,
+        events: events.slice(0, 15).map((e) => ({
+          title: e.title,
+          date: new Date(e.eventDate).toISOString().slice(0, 10),
+          category: e.category,
+          location: e.location || null,
+        })),
+        tasks: tasks.slice(0, 15).map((t) => ({
+          title: t.title,
+          assignedTo: t.assignedMemberName || "Family",
+          dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : null,
+          priority: t.priority,
+          isCompleted: t.isCompleted,
+        })),
+        shopping: shopping.slice(0, 15).map((s) => ({
+          item: s.item,
+          quantity: s.quantity || null,
+          category: s.category,
+        })),
+        summary: `Family Organizer: ${events.length} event(s), ${tasks.length} task(s), ${shopping.length} pending shopping item(s).`,
+      };
+    },
+
+    /**
+     * Retrieves Habits & Wellness streaks and daily wellness logs.
+     */
+    async getMyHabitsAndWellness() {
+      const habits = await prisma.habit.findMany({
+        where: { userId: authenticatedUserId, isArchived: false },
+        orderBy: { createdAt: "asc" },
+      });
+
+      const latestLog = await prisma.wellnessLog.findFirst({
+        where: { userId: authenticatedUserId },
+        orderBy: { date: "desc" },
+      });
+
+      return {
+        habitsCount: habits.length,
+        habits: habits.map((h) => ({
+          title: h.title,
+          frequency: h.frequency,
+          category: h.category,
+          currentStreak: h.currentStreak,
+          bestStreak: h.bestStreak,
+        })),
+        latestWellnessLog: latestLog
+          ? {
+              date: new Date(latestLog.date).toISOString().slice(0, 10),
+              sleepHours: latestLog.sleepHours,
+              waterGlasses: latestLog.waterGlasses,
+              exerciseMinutes: latestLog.exerciseMinutes,
+              mood: latestLog.mood,
+            }
+          : null,
+        summary: `Wellness: ${habits.length} active habit(s). ${latestLog ? `Latest wellness entry: ${latestLog.sleepHours || 0}h sleep, ${latestLog.waterGlasses || 0} glasses water.` : "No wellness logs yet."}`,
+      };
+    },
+
+    /**
+     * Retrieves Travel itineraries and packing checklists.
+     * Note: Sensitive booking references are masked.
+     */
+    async getMyTrips() {
+      const trips = await prisma.trip.findMany({
+        where: { userId: authenticatedUserId },
+        orderBy: { startDate: "asc" },
+        include: {
+          itineraries: { orderBy: { dayDate: "asc" }, take: 10 },
+          packingItems: { where: { isPacked: false } },
+        },
+      });
+
+      return {
+        totalTrips: trips.length,
+        trips: trips.map((tr) => ({
+          id: tr.id,
+          title: tr.title,
+          destination: tr.destination,
+          dates: `${new Date(tr.startDate).toISOString().slice(0, 10)} to ${new Date(tr.endDate).toISOString().slice(0, 10)}`,
+          status: tr.status,
+          unpackedItemCount: tr.packingItems.length,
+          itinerarySample: tr.itineraries.map((it) => ({
+            day: new Date(it.dayDate).toISOString().slice(0, 10),
+            activity: it.activity,
+            bookingRefMasked: it.bookingRef ? it.bookingRef.slice(0, 2) + "****" : null,
+          })),
+        })),
+        summary: `Travel Organizer: ${trips.length} trip(s) recorded.`,
+      };
+    },
+
+    /**
+     * Retrieves personal knowledge notes and collections.
+     */
+    async getMyKnowledgeNotes() {
+      const notes = await prisma.knowledgeNote.findMany({
+        where: { userId: authenticatedUserId, isArchived: false },
+        orderBy: { updatedAt: "desc" },
+        take: 15,
+        include: { collection: { select: { name: true } } },
+      });
+
+      return {
+        totalNotes: notes.length,
+        notes: notes.map((n) => ({
+          title: n.title,
+          collection: n.collection?.name || "General",
+          tags: n.tags || null,
+          isPinned: n.isPinned,
+          isFavorite: n.isFavorite,
+          preview: n.content.slice(0, 120),
+        })),
+        summary: `Knowledge Wallet: ${notes.length} note(s) available.`,
+      };
+    },
   };
 }
 

@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { calculateSubscriptionMetrics, syncSubscriptionReminder } from "@/lib/subscriptions/calculations";
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json(
@@ -12,9 +12,22 @@ export async function GET() {
     );
   }
 
+  const { searchParams } = new URL(request.url);
+  const statusFilter = searchParams.get("status") || "all";
+  const includeArchived = searchParams.get("archived") === "true";
+
   try {
+    const whereClause: any = {
+      userId: user.id,
+      isArchived: includeArchived,
+    };
+
+    if (statusFilter !== "all") {
+      whereClause.renewalStatus = statusFilter;
+    }
+
     const subscriptions = await prisma.subscription.findMany({
-      where: { userId: user.id },
+      where: whereClause,
       orderBy: { nextBillingDate: "asc" },
     });
 
@@ -48,7 +61,24 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, cost, amount, currency, billingCycle, nextBillingDate, nextRenewalDate, renewalDate, category, notes } = body;
+    const {
+      name,
+      cost,
+      amount,
+      currency,
+      billingCycle,
+      nextBillingDate,
+      nextRenewalDate,
+      renewalDate,
+      startDate,
+      trialEndDate,
+      cancellationDate,
+      renewalStatus,
+      status,
+      websiteUrl,
+      category,
+      notes,
+    } = body;
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json(
@@ -59,9 +89,9 @@ export async function POST(request: Request) {
 
     const rawCost = cost !== undefined ? cost : amount;
     const numCost = Number(rawCost);
-    if (isNaN(numCost) || numCost <= 0) {
+    if (isNaN(numCost) || numCost < 0) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_COST", message: "Valid positive amount is required" } },
+        { success: false, error: { code: "INVALID_COST", message: "Valid amount is required" } },
         { status: 400 }
       );
     }
@@ -74,25 +104,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanDate = new Date(rawBillingDate);
-    if (isNaN(cleanDate.getTime())) {
+    const cleanBillingDate = new Date(rawBillingDate);
+    if (isNaN(cleanBillingDate.getTime())) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_DATE", message: "Invalid billing date format" } },
         { status: 400 }
       );
     }
 
+    // Status handling
+    const resolvedStatus = (renewalStatus || status || (trialEndDate ? "trial" : "active")).toLowerCase();
+    const validStatus = ["active", "trial", "paused", "cancelled", "expired"].includes(resolvedStatus)
+      ? resolvedStatus
+      : "active";
+
     const subscription = await prisma.subscription.create({
       data: {
         userId: user.id,
         name: name.trim(),
         cost: numCost,
-        currency: currency ? String(currency).trim() : "USD",
+        currency: currency ? String(currency).trim().toUpperCase() : "USD",
         billingCycle: billingCycle || "monthly",
-        nextBillingDate: cleanDate,
+        nextBillingDate: cleanBillingDate,
+        startDate: startDate ? new Date(startDate) : null,
+        trialEndDate: trialEndDate ? new Date(trialEndDate) : null,
+        cancellationDate: cancellationDate ? new Date(cancellationDate) : validStatus === "cancelled" ? new Date() : null,
+        renewalStatus: validStatus,
+        websiteUrl: websiteUrl ? String(websiteUrl).trim() : null,
         category: category || "Entertainment",
-        renewalStatus: "active",
         notes: notes ? String(notes).trim() : null,
+        isArchived: false,
       },
     });
 

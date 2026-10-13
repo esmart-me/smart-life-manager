@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -47,8 +47,57 @@ interface ReminderListClientProps {
   initialReminders: ReminderItem[];
 }
 
+function computeReminderGroupTag(dueDate: Date, isCompleted: boolean): ReminderTab {
+  if (isCompleted) return "completed";
+  const now = new Date();
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const endOfTomorrow = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const dayOfWeek = now.getDay();
+  const daysUntilEndOfWeek = (7 - dayOfWeek) % 7;
+  const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilEndOfWeek, 23, 59, 59, 999);
+
+  if (dueDate <= endOfToday) return "today";
+  if (dueDate <= endOfTomorrow) return "tomorrow";
+  if (dueDate <= endOfWeek) return "this_week";
+  return "upcoming";
+}
+
+function formatReminderItem(r: any): ReminderItem {
+  const dueDate = new Date(r.dueDate);
+  const now = new Date();
+  const isCompleted = r.status === "completed";
+  const groupTag = computeReminderGroupTag(dueDate, isCompleted);
+  const isOverdue = !isCompleted && dueDate < now;
+  const dateString = dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const timeString = dueDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    dueDate: dueDate.toISOString(),
+    priority: r.priority || "medium",
+    status: r.status || "pending",
+    category: r.category || "general",
+    isRecurring: Boolean(r.isRecurring),
+    recurrenceRule: r.recurrenceRule || null,
+    recurrenceLabel: r.recurrenceLabel || "One-time",
+    groupTag,
+    isOverdue,
+    dateString,
+    timeString,
+  };
+}
+
 export function ReminderListClient({ initialReminders }: ReminderListClientProps) {
   const router = useRouter();
+
+  // Primary reminders list state synchronized with server props
+  const [reminders, setReminders] = useState<ReminderItem[]>(initialReminders);
+
+  useEffect(() => {
+    setReminders(initialReminders);
+  }, [initialReminders]);
 
   // Active tab & search filter states
   const [activeTab, setActiveTab] = useState<ReminderTab>("today");
@@ -91,7 +140,7 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
       completed: 0,
     };
 
-    initialReminders.forEach((r) => {
+    reminders.forEach((r) => {
       if (r.status === "completed") {
         counts.completed++;
       } else {
@@ -100,11 +149,11 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
     });
 
     return counts;
-  }, [initialReminders]);
+  }, [reminders]);
 
   // Filtered Reminders
   const filteredReminders = useMemo(() => {
-    return initialReminders.filter((rem) => {
+    return reminders.filter((rem) => {
       // 1. Tab grouping
       if (activeTab === "completed") {
         if (rem.status !== "completed") return false;
@@ -131,7 +180,7 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
 
       return true;
     });
-  }, [initialReminders, activeTab, categoryFilter, searchQuery]);
+  }, [reminders, activeTab, categoryFilter, searchQuery]);
 
   // Complete / Uncomplete Toggle
   const handleToggleComplete = async (rem: ReminderItem) => {
@@ -147,6 +196,18 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
 
       if (res.ok) {
         showToast(isCompleted ? "Reminder marked incomplete." : "Reminder completed!");
+        setReminders((prev) =>
+          prev.map((r) =>
+            r.id === rem.id
+              ? {
+                  ...r,
+                  status: isCompleted ? "pending" : "completed",
+                  groupTag: computeReminderGroupTag(new Date(r.dueDate), !isCompleted),
+                  isOverdue: isCompleted ? new Date(r.dueDate) < new Date() : false,
+                }
+              : r
+          )
+        );
         router.refresh();
       }
     } catch (err) {
@@ -164,6 +225,7 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
       });
       if (res.ok) {
         showToast("Reminder deleted successfully.");
+        setReminders((prev) => prev.filter((r) => r.id !== id));
         router.refresh();
       }
     }
@@ -183,6 +245,10 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
         showToast(data.message || `Reminder snoozed for ${minutes} minute(s).`);
         setSnoozingId(null);
         setShowCustomSnoozeId(null);
+        if (data.data?.reminder) {
+          const formatted = formatReminderItem(data.data.reminder);
+          setReminders((prev) => prev.map((r) => (r.id === id ? formatted : r)));
+        }
         router.refresh();
       } else {
         showToast("Failed to snooze reminder.");
@@ -586,8 +652,18 @@ export function ReminderListClient({ initialReminders }: ReminderListClientProps
       <ReminderFormModal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        onSuccess={() => {
+        onSuccess={(savedReminder) => {
           showToast(selectedReminder?.id ? "Reminder updated successfully!" : "Reminder created successfully!");
+          if (savedReminder && savedReminder.id) {
+            const formatted = formatReminderItem(savedReminder);
+            setReminders((prev) => {
+              const exists = prev.some((r) => r.id === formatted.id);
+              if (exists) {
+                return prev.map((r) => (r.id === formatted.id ? formatted : r));
+              }
+              return [formatted, ...prev];
+            });
+          }
           router.refresh();
         }}
         initialData={selectedReminder}

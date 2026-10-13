@@ -67,7 +67,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { name, cost, currency, billingCycle, nextBillingDate, renewalStatus, category, notes } = body;
+    const {
+      name,
+      cost,
+      currency,
+      billingCycle,
+      nextBillingDate,
+      startDate,
+      trialEndDate,
+      cancellationDate,
+      renewalStatus,
+      websiteUrl,
+      isArchived,
+      category,
+      notes,
+    } = body;
 
     const dataToUpdate: Record<string, unknown> = {};
 
@@ -83,16 +97,16 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     if (cost !== undefined) {
       const numCost = Number(cost);
-      if (isNaN(numCost) || numCost <= 0) {
+      if (isNaN(numCost) || numCost < 0) {
         return NextResponse.json(
-          { success: false, error: { code: "INVALID_COST", message: "Cost must be a positive number" } },
+          { success: false, error: { code: "INVALID_COST", message: "Valid cost is required" } },
           { status: 400 }
         );
       }
       dataToUpdate.cost = numCost;
     }
 
-    if (currency !== undefined) dataToUpdate.currency = String(currency).trim();
+    if (currency !== undefined) dataToUpdate.currency = String(currency).trim().toUpperCase();
     if (billingCycle !== undefined) dataToUpdate.billingCycle = String(billingCycle).trim();
 
     if (nextBillingDate !== undefined) {
@@ -106,7 +120,26 @@ export async function PUT(request: Request, { params }: RouteParams) {
       dataToUpdate.nextBillingDate = cleanDate;
     }
 
-    if (renewalStatus !== undefined) dataToUpdate.renewalStatus = String(renewalStatus).trim();
+    if (startDate !== undefined) {
+      dataToUpdate.startDate = startDate ? new Date(startDate) : null;
+    }
+    if (trialEndDate !== undefined) {
+      dataToUpdate.trialEndDate = trialEndDate ? new Date(trialEndDate) : null;
+    }
+    if (cancellationDate !== undefined) {
+      dataToUpdate.cancellationDate = cancellationDate ? new Date(cancellationDate) : null;
+    }
+
+    if (renewalStatus !== undefined) {
+      const cleanStatus = String(renewalStatus).trim().toLowerCase();
+      dataToUpdate.renewalStatus = cleanStatus;
+      if (cleanStatus === "cancelled" && !dataToUpdate.cancellationDate && !existing.cancellationDate) {
+        dataToUpdate.cancellationDate = new Date();
+      }
+    }
+
+    if (websiteUrl !== undefined) dataToUpdate.websiteUrl = websiteUrl ? String(websiteUrl).trim() : null;
+    if (isArchived !== undefined) dataToUpdate.isArchived = Boolean(isArchived);
     if (category !== undefined) dataToUpdate.category = String(category).trim();
     if (notes !== undefined) dataToUpdate.notes = notes ? String(notes).trim() : null;
 

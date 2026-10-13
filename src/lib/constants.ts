@@ -21,8 +21,13 @@ export const MOBILE_NAV_ITEMS: NavItem[] = [
 // Desktop Sidebar Primary Navigation
 export const DESKTOP_NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/", iconName: "LayoutDashboard", exact: true },
+  { label: "Daily Planner", href: "/planner", iconName: "CalendarDays" },
   { label: "AI Assistant", href: "/assistant", iconName: "Sparkles" },
   { label: "Documents & Expiries", href: "/documents", iconName: "FileText" },
+  { label: "Home Inventory", href: "/inventory", iconName: "Package" },
+  { label: "Wellness & Habits", href: "/wellness", iconName: "Activity" },
+  { label: "Travel Organizer", href: "/travel", iconName: "Compass" },
+  { label: "Knowledge Wallet", href: "/knowledge", iconName: "BookOpen" },
   { label: "Reminders & Tasks", href: "/reminders", iconName: "Bell" },
   { label: "Finance & Bills", href: "/finance", iconName: "Wallet" },
   { label: "Reports & Analytics", href: "/reports", iconName: "BarChart3" },

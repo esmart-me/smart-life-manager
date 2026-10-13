@@ -11,6 +11,7 @@ import { calculatePaymentStatus, toCalendarDateString } from "@/lib/finance/calc
 import { calculateVehicleAlerts } from "@/lib/vehicles/status";
 import { calculateSubscriptionMetrics } from "@/lib/subscriptions/calculations";
 import { calculateNextDateOccurrence } from "@/lib/dates/calculations";
+import { calculateWarrantyStatus } from "@/lib/inventory/status";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -28,6 +29,10 @@ export default async function DashboardPage() {
     vehicles,
     subscriptions,
     importantDates,
+    inventoryItems,
+    plannerTasks,
+    familyEvents,
+    trips,
   ] = await Promise.all([
     prisma.profile.findUnique({
       where: { userId: user.id },
@@ -63,6 +68,21 @@ export default async function DashboardPage() {
     prisma.importantDate.findMany({
       where: { userId: user.id },
       orderBy: { eventDate: "asc" },
+    }),
+    prisma.inventoryItem.findMany({
+      where: { userId: user.id, isArchived: false },
+    }),
+    prisma.plannerTask.findMany({
+      where: { userId: user.id },
+      orderBy: { date: "asc" },
+    }),
+    prisma.familyEvent.findMany({
+      where: { userId: user.id },
+      orderBy: { eventDate: "asc" },
+    }),
+    prisma.trip.findMany({
+      where: { userId: user.id, status: { in: ["planned", "active"] } },
+      orderBy: { startDate: "asc" },
     }),
   ]);
 
@@ -175,6 +195,67 @@ export default async function DashboardPage() {
           customBadge: "DUE",
         });
       }
+    } else if (sub.renewalStatus === "trial" && sub.trialEndDate) {
+      const trialEnd = new Date(sub.trialEndDate);
+      const days = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (days <= 7 && days >= -2) {
+        attentionItems.push({
+          id: `sub-trial-${sub.id}`,
+          title: `Free Trial Ending: ${sub.name}`,
+          subtitle: `${sub.category} • Renewal cost: ${sub.currency} ${sub.cost.toFixed(2)}`,
+          dueDateText: days < 0 ? "Trial Expired" : days === 0 ? "Ends Today" : `Ends in ${days}d`,
+          type: "critical_reminder",
+          urgency: days <= 2 ? "urgent" : "warning",
+          actionHref: "/subscriptions",
+          customBadge: "TRIAL",
+        });
+      }
+    }
+  });
+
+  // F. Home Inventory Warranty Alerts
+  inventoryItems.forEach((inv) => {
+    if (inv.warrantyExpiry) {
+      const wInfo = calculateWarrantyStatus(inv.warrantyExpiry, inv.warrantyStart);
+      if (wInfo.status === "expired") {
+        attentionItems.push({
+          id: `inv-exp-${inv.id}`,
+          title: `${inv.name} Warranty Expired`,
+          subtitle: `${inv.category} • ${wInfo.label}`,
+          dueDateText: wInfo.label,
+          type: "expired_document",
+          urgency: "warning",
+          actionHref: "/inventory",
+          customBadge: "WARRANTY",
+        });
+      } else if (wInfo.status === "expiring_soon") {
+        attentionItems.push({
+          id: `inv-soon-${inv.id}`,
+          title: `${inv.name} Warranty Expiring Soon`,
+          subtitle: `${inv.category} • ${wInfo.label}`,
+          dueDateText: wInfo.label,
+          type: "expiring_document",
+          urgency: "urgent",
+          actionHref: "/inventory",
+          customBadge: "WARRANTY ALERT",
+        });
+      }
+    }
+  });
+
+  // G. Overdue Daily Planner Tasks & Appointments
+  plannerTasks.forEach((pt) => {
+    if (!pt.isCompleted && pt.date < now) {
+      attentionItems.push({
+        id: `plan-overdue-${pt.id}`,
+        title: `${pt.itemType === "appointment" ? "Appointment" : "Task"} Overdue: ${pt.title}`,
+        subtitle: pt.description || `${pt.category} • ${pt.priority.toUpperCase()} priority`,
+        dueDateText: `Due ${formatShortDate(pt.date)}`,
+        type: "critical_reminder",
+        urgency: pt.priority === "urgent" || pt.priority === "high" ? "urgent" : "high",
+        actionHref: "/planner",
+        customBadge: "PLANNER",
+      });
     }
   });
 
@@ -320,6 +401,87 @@ export default async function DashboardPage() {
       categoryLabel: catLabel,
       actionHref: "/more/dates",
     });
+  });
+
+  // F. Upcoming Daily Planner Tasks & Appointments
+  plannerTasks.forEach((pt) => {
+    if (!pt.isCompleted && pt.date >= now) {
+      const days = Math.ceil((pt.date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (days <= 14) {
+        upcomingEvents.push({
+          id: `up-plan-${pt.id}`,
+          title: pt.title,
+          subtitle: pt.location ? `Location: ${pt.location}` : pt.itemType === "appointment" ? "Appointment" : "Task",
+          eventDate: pt.date,
+          dateFormatted: formatShortDate(pt.date),
+          daysRemaining: days,
+          category: "reminder",
+          categoryLabel: pt.itemType === "appointment" ? "Appointment" : "Task",
+          actionHref: "/planner",
+        });
+      }
+    }
+  });
+
+  // G. Upcoming Warranty Expirations
+  inventoryItems.forEach((inv) => {
+    if (inv.warrantyExpiry && new Date(inv.warrantyExpiry) >= now) {
+      const expDate = new Date(inv.warrantyExpiry);
+      const days = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (days <= 60) {
+        upcomingEvents.push({
+          id: `up-inv-warr-${inv.id}`,
+          title: `${inv.name} Warranty Expiry`,
+          subtitle: inv.brand ? `${inv.brand} • ${inv.category}` : inv.category,
+          eventDate: expDate,
+          dateFormatted: formatShortDate(expDate),
+          daysRemaining: days,
+          category: "document",
+          categoryLabel: "Warranty",
+          actionHref: "/inventory",
+        });
+      }
+    }
+  });
+
+  // H. Upcoming Family Events & Gatherings
+  familyEvents.forEach((fe) => {
+    if (fe.eventDate >= now) {
+      const days = Math.ceil((fe.eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (days <= 30) {
+        upcomingEvents.push({
+          id: `up-fam-${fe.id}`,
+          title: fe.title,
+          subtitle: `Family • ${fe.category.toUpperCase()}${fe.location ? ` • ${fe.location}` : ""}`,
+          eventDate: fe.eventDate,
+          dateFormatted: formatShortDate(fe.eventDate),
+          daysRemaining: days,
+          category: "date",
+          categoryLabel: "Family Event",
+          actionHref: "/more/family",
+        });
+      }
+    }
+  });
+
+  // I. Upcoming Trips & Vacations
+  trips.forEach((tr) => {
+    if (tr.startDate >= now) {
+      const days = Math.ceil((tr.startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (days <= 60) {
+        upcomingEvents.push({
+          id: `up-trip-${tr.id}`,
+          title: `Trip: ${tr.title}`,
+          subtitle: `Destination: ${tr.destination}`,
+          eventDate: tr.startDate,
+          dateFormatted: formatShortDate(tr.startDate),
+          daysRemaining: days,
+          category: "date",
+          categoryLabel: "Trip",
+          actionHref: "/travel",
+        });
+      }
+    }
   });
 
   // Sort chronological order (closest date first)

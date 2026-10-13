@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PieChart, CreditCard, Receipt, Plus, Settings, RefreshCw, CheckCircle2, TrendingUp, Wallet } from "lucide-react";
@@ -42,6 +42,13 @@ export function FinanceShellClient({
 
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Synchronized expenses state for instant client-side update
+  const [expenses, setExpenses] = useState<ExpenseItem[]>(initialExpenses);
+
+  useEffect(() => {
+    setExpenses(initialExpenses);
+  }, [initialExpenses]);
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
@@ -242,11 +249,12 @@ export function FinanceShellClient({
 
       {activeTab === "expenses" && (
         <ExpenseListTab
-          expenses={initialExpenses}
+          expenses={expenses}
           userCurrency={userCurrency}
           onAddExpense={handleOpenAddExpense}
           onEditExpense={handleOpenEditExpense}
           onRefresh={handleRefresh}
+          onDeleteExpense={(id) => setExpenses((prev) => prev.filter((e) => e.id !== id))}
         />
       )}
 
@@ -265,8 +273,28 @@ export function FinanceShellClient({
       <ExpenseFormModal
         isOpen={isExpenseModalOpen}
         onClose={() => setIsExpenseModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(savedExpense) => {
           showToast(selectedExpense?.id ? "Expense updated successfully!" : "Expense recorded successfully!");
+          if (savedExpense && savedExpense.id) {
+            const formattedItem: ExpenseItem = {
+              id: savedExpense.id,
+              title: savedExpense.title,
+              amount: Number(savedExpense.amount),
+              currency: savedExpense.currency || userCurrency,
+              category: savedExpense.category,
+              spentAt: savedExpense.spentAt ? new Date(savedExpense.spentAt).toISOString() : new Date().toISOString(),
+              paymentMethod: savedExpense.paymentMethod,
+              notes: savedExpense.notes,
+              receiptUrl: savedExpense.receiptUrl,
+            };
+            setExpenses((prev) => {
+              const exists = prev.some((e) => e.id === formattedItem.id);
+              if (exists) {
+                return prev.map((e) => (e.id === formattedItem.id ? formattedItem : e));
+              }
+              return [formattedItem, ...prev];
+            });
+          }
           handleRefresh();
         }}
         initialData={selectedExpense}

@@ -15,6 +15,11 @@ export interface ToolSelection {
   needBudgets: boolean;
   needSubscriptions: boolean;
   needFamily: boolean;
+  needPlanner: boolean;
+  needInventory: boolean;
+  needWellness: boolean;
+  needTravel: boolean;
+  needKnowledge: boolean;
   isGeneralOverview: boolean;
 }
 
@@ -58,6 +63,11 @@ export function resolveRelevantTools(
       needBudgets: true,
       needSubscriptions: true,
       needFamily: true,
+      needPlanner: true,
+      needInventory: true,
+      needWellness: true,
+      needTravel: true,
+      needKnowledge: true,
       isGeneralOverview: true,
     };
   }
@@ -185,11 +195,58 @@ export function resolveRelevantTools(
     q.includes("sister") ||
     q.includes("emergency contact");
 
+  let needPlanner =
+    q.includes("planner") ||
+    q.includes("appointment") ||
+    q.includes("timeline") ||
+    q.includes("schedule") ||
+    q.includes("agenda") ||
+    q.includes("briefing") ||
+    q.includes("today's plan");
+
+  let needInventory =
+    q.includes("inventory") ||
+    q.includes("appliance") ||
+    q.includes("warranty") ||
+    q.includes("gadget") ||
+    q.includes("serial") ||
+    q.includes("repair") ||
+    q.includes("maintenance");
+
+  let needWellness =
+    q.includes("habit") ||
+    q.includes("wellness") ||
+    q.includes("streak") ||
+    q.includes("sleep") ||
+    q.includes("water") ||
+    q.includes("hydration") ||
+    q.includes("mood") ||
+    q.includes("exercise");
+
+  let needTravel =
+    q.includes("trip") ||
+    q.includes("travel") ||
+    q.includes("flight") ||
+    q.includes("hotel") ||
+    q.includes("packing") ||
+    q.includes("destination") ||
+    q.includes("itinerary") ||
+    q.includes("vacation");
+
+  let needKnowledge =
+    q.includes("note") ||
+    q.includes("knowledge") ||
+    q.includes("wallet") ||
+    q.includes("memo") ||
+    q.includes("collection") ||
+    q.includes("clip");
+
   // Multi-module renewal / expiration intent (e.g. "When is my next renewal?")
   if (q.includes("renewal") || q.includes("renew") || q.includes("expir")) {
     needDocuments = true;
     needVehicles = true;
     needSubscriptions = true;
+    needInventory = true;
   }
 
   // Multi-module intents (e.g. "What do I need to take care of this week?")
@@ -197,6 +254,7 @@ export function resolveRelevantTools(
     needReminders = true;
     needPayments = true;
     needDocuments = true;
+    needPlanner = true;
   }
 
   // 3. Conversational context resolution for follow-ups (e.g. "How many days are left?", "Is it expired?")
@@ -236,6 +294,21 @@ export function resolveRelevantTools(
     if (recentContext.includes("date") || recentContext.includes("birthday") || recentContext.includes("anniversary")) {
       needImportantDates = true;
     }
+    if (recentContext.includes("planner") || recentContext.includes("appointment")) {
+      needPlanner = true;
+    }
+    if (recentContext.includes("inventory") || recentContext.includes("warranty")) {
+      needInventory = true;
+    }
+    if (recentContext.includes("habit") || recentContext.includes("wellness")) {
+      needWellness = true;
+    }
+    if (recentContext.includes("trip") || recentContext.includes("travel")) {
+      needTravel = true;
+    }
+    if (recentContext.includes("note") || recentContext.includes("knowledge")) {
+      needKnowledge = true;
+    }
   }
 
   // If nothing matched at all, provide common actionable modules
@@ -248,13 +321,19 @@ export function resolveRelevantTools(
     !needPayments &&
     !needBudgets &&
     !needSubscriptions &&
-    !needFamily;
+    !needFamily &&
+    !needPlanner &&
+    !needInventory &&
+    !needWellness &&
+    !needTravel &&
+    !needKnowledge;
 
   if (noneMatched) {
     needReminders = true;
     needDocuments = true;
     needVehicles = true;
     needPayments = true;
+    needPlanner = true;
   }
 
   return {
@@ -267,6 +346,11 @@ export function resolveRelevantTools(
     needBudgets,
     needSubscriptions,
     needFamily,
+    needPlanner,
+    needInventory,
+    needWellness,
+    needTravel,
+    needKnowledge,
     isGeneralOverview: false,
   };
 }
@@ -552,6 +636,118 @@ export async function gatherCustomerContext(
             for (const gm of g.members) {
               block += `  * ${gm.name} (Role: ${gm.role}${gm.email ? `, ${gm.email}` : ""})\n`;
             }
+          }
+        }
+        return block;
+      })
+    );
+
+    // Also include Family Organizer items
+    selectedTools.push("getMyFamilyOrganizer");
+    toolPromises.push(
+      tools.getMyFamilyOrganizer().then((res) => {
+        let block = "### Family Organizer (Events, Tasks & Shopping)\n";
+        block += `${res.summary}\n`;
+        if (res.events.length > 0) {
+          block += `\n#### Upcoming Family Events:\n`;
+          for (const e of res.events) {
+            block += `- **${e.title}**: ${e.date} (${e.category}${e.location ? `, at ${e.location}` : ""})\n`;
+          }
+        }
+        if (res.tasks.length > 0) {
+          block += `\n#### Assigned Family Tasks:\n`;
+          for (const t of res.tasks) {
+            block += `- [${t.isCompleted ? "DONE" : t.priority.toUpperCase()}] **${t.title}** (Assigned to: ${t.assignedTo}${t.dueDate ? `, Due: ${t.dueDate}` : ""})\n`;
+          }
+        }
+        return block;
+      })
+    );
+  }
+
+  if (selection.needPlanner) {
+    selectedTools.push("getMyPlannerTasks");
+    toolPromises.push(
+      tools.getMyPlannerTasks().then((res) => {
+        let block = "### Daily Life Planner Tasks & Appointments\n";
+        if (res.tasks.length === 0) {
+          block += "No planner tasks or appointments recorded.\n";
+        } else {
+          block += `${res.summary}\n`;
+          for (const t of res.tasks) {
+            block += `- [${t.isCompleted ? "COMPLETED" : t.priority.toUpperCase()}] **${t.title}** (${t.itemType}, ${t.date} ${t.time}${t.location ? `, Location: ${t.location}` : ""})\n`;
+          }
+        }
+        return block;
+      })
+    );
+  }
+
+  if (selection.needInventory) {
+    selectedTools.push("getMyHomeInventory");
+    toolPromises.push(
+      tools.getMyHomeInventory().then((res) => {
+        let block = "### Home Inventory & Warranty Manager\n";
+        if (res.items.length === 0) {
+          block += "No inventory items registered in your home.\n";
+        } else {
+          block += `${res.summary}\n`;
+          for (const i of res.items) {
+            block += `- **${i.name}** (${i.category}, Brand: ${i.brand}, Location: ${i.location}): ${i.warrantyStatus}\n`;
+          }
+        }
+        return block;
+      })
+    );
+  }
+
+  if (selection.needWellness) {
+    selectedTools.push("getMyHabitsAndWellness");
+    toolPromises.push(
+      tools.getMyHabitsAndWellness().then((res) => {
+        let block = "### Habits & Wellness Tracker\n";
+        block += `${res.summary}\n`;
+        for (const h of res.habits) {
+          block += `- **${h.title}** (${h.category}, ${h.frequency}): Current Streak: ${h.currentStreak} day(s), Best: ${h.bestStreak}\n`;
+        }
+        if (res.latestWellnessLog) {
+          const w = res.latestWellnessLog;
+          block += `Latest log (${w.date}): Sleep: ${w.sleepHours || 0}h, Water: ${w.waterGlasses || 0} glasses, Mood: ${w.mood || "N/A"}\n`;
+        }
+        return block;
+      })
+    );
+  }
+
+  if (selection.needTravel) {
+    selectedTools.push("getMyTrips");
+    toolPromises.push(
+      tools.getMyTrips().then((res) => {
+        let block = "### Travel Organizer\n";
+        if (res.trips.length === 0) {
+          block += "No trips planned or recorded.\n";
+        } else {
+          block += `${res.summary}\n`;
+          for (const tr of res.trips) {
+            block += `- **${tr.title}** (${tr.destination}, ${tr.dates}, Status: ${tr.status.toUpperCase()}, Unpacked items: ${tr.unpackedItemCount})\n`;
+          }
+        }
+        return block;
+      })
+    );
+  }
+
+  if (selection.needKnowledge) {
+    selectedTools.push("getMyKnowledgeNotes");
+    toolPromises.push(
+      tools.getMyKnowledgeNotes().then((res) => {
+        let block = "### Personal Knowledge Wallet\n";
+        if (res.notes.length === 0) {
+          block += "No notes found in your wallet.\n";
+        } else {
+          block += `${res.summary}\n`;
+          for (const n of res.notes) {
+            block += `- **${n.title}** (${n.collection}${n.tags ? `, Tags: ${n.tags}` : ""}): ${n.preview}...\n`;
           }
         }
         return block;

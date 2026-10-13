@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     const uid = user.id;
 
-    // ── Fetch all customer-owned data in parallel ──────────────────────────────
+    // ── Fetch all customer-owned data in parallel strictly scoped to uid ─────────
     const [
       profile,
       settings,
@@ -48,6 +48,16 @@ export async function GET(req: NextRequest) {
       subscriptions,
       importantDates,
       familyMembers,
+      plannerTasks,
+      inventoryItems,
+      familyEvents,
+      familyTasks,
+      familyShoppingItems,
+      habits,
+      wellnessLogs,
+      trips,
+      knowledgeCollections,
+      knowledgeNotes,
     ] = await Promise.all([
       prisma.profile.findUnique({ where: { userId: uid } }),
       prisma.userSetting.findUnique({ where: { userId: uid } }),
@@ -64,13 +74,54 @@ export async function GET(req: NextRequest) {
       prisma.subscription.findMany({ where: { userId: uid }, orderBy: { nextBillingDate: "asc" } }),
       prisma.importantDate.findMany({ where: { userId: uid }, orderBy: { eventDate: "asc" } }),
       prisma.familyMember.findMany({ where: { userId: uid }, orderBy: { name: "asc" } }),
+      prisma.plannerTask.findMany({ where: { userId: uid }, orderBy: { date: "asc" } }),
+      prisma.inventoryItem.findMany({
+        where: { userId: uid },
+        orderBy: { createdAt: "desc" },
+        include: { serviceLogs: { orderBy: { serviceDate: "desc" } } },
+      }),
+      prisma.familyEvent.findMany({ where: { userId: uid }, orderBy: { eventDate: "asc" } }),
+      prisma.familyTask.findMany({ where: { userId: uid }, orderBy: { dueDate: "asc" } }),
+      prisma.familyShoppingItem.findMany({ where: { userId: uid }, orderBy: { createdAt: "desc" } }),
+      prisma.habit.findMany({
+        where: { userId: uid },
+        orderBy: { createdAt: "asc" },
+        include: { logs: { orderBy: { date: "desc" } } },
+      }),
+      prisma.wellnessLog.findMany({ where: { userId: uid }, orderBy: { date: "desc" } }),
+      prisma.trip.findMany({
+        where: { userId: uid },
+        orderBy: { startDate: "asc" },
+        include: {
+          itineraries: { orderBy: { dayDate: "asc" } },
+          packingItems: { orderBy: { createdAt: "asc" } },
+        },
+      }),
+      prisma.knowledgeCollection.findMany({ where: { userId: uid }, orderBy: { name: "asc" } }),
+      prisma.knowledgeNote.findMany({ where: { userId: uid }, orderBy: { updatedAt: "desc" } }),
     ]);
 
     // ── CSV Export (section-specific) ──────────────────────────────────────────
     if (format === "csv") {
       const csvData = buildCSV(section, {
-        reminders, documents, vehicles, payments, expenses,
-        budgets, subscriptions, importantDates, familyMembers,
+        reminders,
+        documents,
+        vehicles,
+        payments,
+        expenses,
+        budgets,
+        subscriptions,
+        importantDates,
+        familyMembers,
+        plannerTasks,
+        inventoryItems,
+        familyEvents,
+        familyTasks,
+        familyShoppingItems,
+        habits,
+        wellnessLogs,
+        trips,
+        knowledgeNotes,
       });
 
       if (!csvData) {
@@ -165,7 +216,6 @@ export async function GET(req: NextRequest) {
         notes: d.notes,
         tags: d.tags,
         fileCount: d.files.length,
-        // Note: actual file binaries are NOT included (only metadata)
         files: d.files.map((f) => ({
           fileName: f.fileName,
           fileType: f.fileType,
@@ -233,6 +283,9 @@ export async function GET(req: NextRequest) {
         nextBillingDate: s.nextBillingDate.toISOString(),
         renewalStatus: s.renewalStatus,
         category: s.category,
+        startDate: s.startDate?.toISOString() ?? null,
+        trialEndDate: s.trialEndDate?.toISOString() ?? null,
+        websiteUrl: s.websiteUrl,
         notes: s.notes,
         createdAt: s.createdAt.toISOString(),
       })),
@@ -255,6 +308,160 @@ export async function GET(req: NextRequest) {
         email: f.email,
         notes: f.notes,
         createdAt: f.createdAt.toISOString(),
+      })),
+      plannerTasks: plannerTasks.map((t) => ({
+        title: t.title,
+        description: t.description,
+        itemType: t.itemType,
+        date: t.date.toISOString(),
+        startTime: t.startTime,
+        endTime: t.endTime,
+        location: t.location,
+        priority: t.priority,
+        category: t.category,
+        isCompleted: t.isCompleted,
+        completedAt: t.completedAt?.toISOString() ?? null,
+        notes: t.notes,
+        createdAt: t.createdAt.toISOString(),
+      })),
+      inventoryItems: inventoryItems.map((item) => ({
+        name: item.name,
+        category: item.category,
+        brand: item.brand,
+        modelNumber: item.modelNumber,
+        serialNumber: item.serialNumber,
+        purchaseDate: item.purchaseDate?.toISOString() ?? null,
+        purchasePrice: item.purchasePrice,
+        currency: item.currency,
+        retailer: item.retailer,
+        location: item.location,
+        warrantyStart: item.warrantyStart?.toISOString() ?? null,
+        warrantyExpiry: item.warrantyExpiry?.toISOString() ?? null,
+        warrantyNotes: item.warrantyNotes,
+        notes: item.notes,
+        isArchived: item.isArchived,
+        createdAt: item.createdAt.toISOString(),
+        serviceLogs: item.serviceLogs.map((s) => ({
+          serviceDate: s.serviceDate.toISOString(),
+          description: s.description,
+          provider: s.provider,
+          cost: s.cost,
+          currency: s.currency,
+          nextServiceDate: s.nextServiceDate?.toISOString() ?? null,
+          notes: s.notes,
+          createdAt: s.createdAt.toISOString(),
+        })),
+      })),
+      familyEvents: familyEvents.map((fe) => ({
+        title: fe.title,
+        description: fe.description,
+        eventDate: fe.eventDate.toISOString(),
+        endDate: fe.endDate?.toISOString() ?? null,
+        startTime: fe.startTime,
+        endTime: fe.endTime,
+        location: fe.location,
+        category: fe.category,
+        isAllDay: fe.isAllDay,
+        notes: fe.notes,
+        createdAt: fe.createdAt.toISOString(),
+      })),
+      familyTasks: familyTasks.map((ft) => ({
+        title: ft.title,
+        description: ft.description,
+        assignedMemberName: ft.assignedMemberName,
+        dueDate: ft.dueDate?.toISOString() ?? null,
+        priority: ft.priority,
+        status: ft.status,
+        category: ft.category,
+        isCompleted: ft.isCompleted,
+        completedAt: ft.completedAt?.toISOString() ?? null,
+        createdAt: ft.createdAt.toISOString(),
+      })),
+      familyShoppingItems: familyShoppingItems.map((si) => ({
+        item: si.item,
+        quantity: si.quantity,
+        category: si.category,
+        isPurchased: si.isPurchased,
+        estimatedCost: si.estimatedCost,
+        assignedMemberName: si.assignedMemberName,
+        notes: si.notes,
+        createdAt: si.createdAt.toISOString(),
+      })),
+      habits: habits.map((h) => ({
+        title: h.title,
+        description: h.description,
+        category: h.category,
+        frequency: h.frequency,
+        targetDaysPerWeek: h.targetDaysPerWeek,
+        currentStreak: h.currentStreak,
+        bestStreak: h.bestStreak,
+        color: h.color,
+        reminderTime: h.reminderTime,
+        isArchived: h.isArchived,
+        createdAt: h.createdAt.toISOString(),
+        logs: h.logs.map((l) => ({
+          date: l.date.toISOString(),
+          completed: l.completed,
+          notes: l.notes,
+        })),
+      })),
+      wellnessLogs: wellnessLogs.map((wl) => ({
+        date: wl.date.toISOString(),
+        sleepHours: wl.sleepHours,
+        waterGlasses: wl.waterGlasses,
+        exerciseMinutes: wl.exerciseMinutes,
+        mood: wl.mood,
+        notes: wl.notes,
+        createdAt: wl.createdAt.toISOString(),
+      })),
+      trips: trips.map((tr) => ({
+        title: tr.title,
+        destination: tr.destination,
+        startDate: tr.startDate.toISOString(),
+        endDate: tr.endDate.toISOString(),
+        status: tr.status,
+        estimatedBudget: tr.estimatedBudget,
+        actualCost: tr.actualCost,
+        currency: tr.currency,
+        notes: tr.notes,
+        createdAt: tr.createdAt.toISOString(),
+        itineraries: tr.itineraries.map((it) => ({
+          dayDate: it.dayDate.toISOString(),
+          timeSlot: it.timeSlot,
+          activity: it.activity,
+          location: it.location,
+          bookingRef: it.bookingRef,
+          confirmationDetails: it.confirmationDetails,
+          cost: it.cost,
+          category: it.category,
+          notes: it.notes,
+          createdAt: it.createdAt.toISOString(),
+        })),
+        packingItems: tr.packingItems.map((pk) => ({
+          item: pk.item,
+          category: pk.category,
+          isPacked: pk.isPacked,
+          quantity: pk.quantity,
+          createdAt: pk.createdAt.toISOString(),
+        })),
+      })),
+      knowledgeCollections: knowledgeCollections.map((kc) => ({
+        name: kc.name,
+        description: kc.description,
+        color: kc.color,
+        icon: kc.icon,
+        createdAt: kc.createdAt.toISOString(),
+      })),
+      knowledgeNotes: knowledgeNotes.map((kn) => ({
+        title: kn.title,
+        content: kn.content,
+        tags: kn.tags,
+        isPinned: kn.isPinned,
+        isFavorite: kn.isFavorite,
+        isArchived: kn.isArchived,
+        sourceUrl: kn.sourceUrl,
+        attachmentName: kn.attachmentName,
+        createdAt: kn.createdAt.toISOString(),
       })),
     };
 
@@ -282,15 +489,24 @@ export async function GET(req: NextRequest) {
 // ── CSV Builder ────────────────────────────────────────────────────────────────
 
 interface DataMap {
-  reminders: { title: string; description?: string | null; dueDate: Date; priority: string; status: string; category: string; isRecurring: boolean; recurrenceRule?: string | null; completedAt?: Date | null; createdAt: Date }[];
-  documents: { title: string; category: string; documentNumber?: string | null; issuedBy?: string | null; issueDate?: Date | null; expiryDate?: Date | null; hasExpiry: boolean; notes?: string | null; tags?: string | null; files: { fileName: string; fileType: string; fileSize: number; createdAt: Date }[]; createdAt: Date }[];
-  vehicles: { name: string; make?: string | null; model?: string | null; year?: number | null; licensePlate?: string | null; vin?: string | null; registrationExpiry?: Date | null; insuranceExpiry?: Date | null; inspectionExpiry?: Date | null; nextServiceDate?: Date | null; mileage?: number | null; notes?: string | null; createdAt: Date }[];
-  payments: { title: string; payee?: string | null; amount: number; currency: string; dueDate: Date; isPaid: boolean; paidAt?: Date | null; category: string; isRecurring: boolean; frequency?: string | null; notes?: string | null; createdAt: Date }[];
-  expenses: { title: string; amount: number; currency: string; category: string; spentAt: Date; paymentMethod?: string | null; merchant?: string | null; notes?: string | null; createdAt: Date }[];
-  budgets: { category: string; limitAmount: number; currency: string; period: string; startDate?: Date | null; endDate?: Date | null; alertThreshold: number; createdAt: Date }[];
-  subscriptions: { name: string; cost: number; currency: string; billingCycle: string; nextBillingDate: Date; renewalStatus: string; category: string; notes?: string | null; createdAt: Date }[];
-  importantDates: { title: string; eventDate: Date; category: string; recurrence: string; reminderDaysBefore: number; notes?: string | null; createdAt: Date }[];
-  familyMembers: { name: string; relationship: string; birthDate?: Date | null; bloodType?: string | null; emergencyContact: boolean; phoneNumber?: string | null; email?: string | null; notes?: string | null; createdAt: Date }[];
+  reminders: any[];
+  documents: any[];
+  vehicles: any[];
+  payments: any[];
+  expenses: any[];
+  budgets: any[];
+  subscriptions: any[];
+  importantDates: any[];
+  familyMembers: any[];
+  plannerTasks: any[];
+  inventoryItems: any[];
+  familyEvents: any[];
+  familyTasks: any[];
+  familyShoppingItems: any[];
+  habits: any[];
+  wellnessLogs: any[];
+  trips: any[];
+  knowledgeNotes: any[];
 }
 
 function buildCSV(section: string, data: DataMap): string | null {
@@ -303,17 +519,12 @@ function buildCSV(section: string, data: DataMap): string | null {
   const row = (cols: unknown[]) => cols.map(escape).join(",");
 
   switch (section) {
-    case "reminders":
-    case "all": {
-      if (section === "reminders") {
-        const header = ["Title","Description","Due Date","Priority","Status","Category","Recurring","Recurrence Rule","Completed At","Created At"];
-        const rows = data.reminders.map((r) =>
-          row([r.title, r.description, r.dueDate, r.priority, r.status, r.category, r.isRecurring, r.recurrenceRule, r.completedAt, r.createdAt])
-        );
-        return [header.join(","), ...rows].join("\n");
-      }
-      // For 'all', fall through to return null (all is JSON only)
-      return null;
+    case "reminders": {
+      const header = ["Title","Description","Due Date","Priority","Status","Category","Recurring","Recurrence Rule","Completed At","Created At"];
+      const rows = data.reminders.map((r) =>
+        row([r.title, r.description, r.dueDate, r.priority, r.status, r.category, r.isRecurring, r.recurrenceRule, r.completedAt, r.createdAt])
+      );
+      return [header.join(","), ...rows].join("\n");
     }
     case "documents": {
       const header = ["Title","Category","Document Number","Issued By","Issue Date","Expiry Date","Has Expiry","Notes","Tags","File Count","Created At"];
@@ -361,6 +572,41 @@ function buildCSV(section: string, data: DataMap): string | null {
       const header = ["Name","Relationship","Birth Date","Blood Type","Emergency Contact","Phone","Email","Notes","Created At"];
       const rows = data.familyMembers.map((f) =>
         row([f.name, f.relationship, f.birthDate, f.bloodType, f.emergencyContact, f.phoneNumber, f.email, f.notes, f.createdAt])
+      );
+      return [header.join(","), ...rows].join("\n");
+    }
+    case "planner": {
+      const header = ["Title","Type","Date","Start Time","End Time","Location","Priority","Category","Completed","Created At"];
+      const rows = data.plannerTasks.map((t) =>
+        row([t.title, t.itemType, t.date, t.startTime, t.endTime, t.location, t.priority, t.category, t.isCompleted, t.createdAt])
+      );
+      return [header.join(","), ...rows].join("\n");
+    }
+    case "inventory": {
+      const header = ["Name","Category","Brand","Model","Location","Purchase Price","Currency","Warranty Expiry","Archived","Created At"];
+      const rows = data.inventoryItems.map((i) =>
+        row([i.name, i.category, i.brand, i.modelNumber, i.location, i.purchasePrice, i.currency, i.warrantyExpiry, i.isArchived, i.createdAt])
+      );
+      return [header.join(","), ...rows].join("\n");
+    }
+    case "wellness": {
+      const header = ["Habit","Category","Frequency","Streak","Best Streak","Archived","Created At"];
+      const rows = data.habits.map((h) =>
+        row([h.title, h.category, h.frequency, h.currentStreak, h.bestStreak, h.isArchived, h.createdAt])
+      );
+      return [header.join(","), ...rows].join("\n");
+    }
+    case "travel": {
+      const header = ["Trip","Destination","Start Date","End Date","Status","Budget","Actual Cost","Currency","Created At"];
+      const rows = data.trips.map((tr) =>
+        row([tr.title, tr.destination, tr.startDate, tr.endDate, tr.status, tr.estimatedBudget, tr.actualCost, tr.currency, tr.createdAt])
+      );
+      return [header.join(","), ...rows].join("\n");
+    }
+    case "knowledge": {
+      const header = ["Title","Tags","Pinned","Favorite","Archived","Created At","Content Preview"];
+      const rows = data.knowledgeNotes.map((kn) =>
+        row([kn.title, kn.tags, kn.isPinned, kn.isFavorite, kn.isArchived, kn.createdAt, kn.content ? kn.content.slice(0, 100) : ""])
       );
       return [header.join(","), ...rows].join("\n");
     }

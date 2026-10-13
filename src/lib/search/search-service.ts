@@ -12,11 +12,30 @@ export type SearchCategory =
   | "expenses"
   | "vehicles"
   | "subscriptions"
-  | "dates";
+  | "dates"
+  | "planner"
+  | "inventory"
+  | "family"
+  | "wellness"
+  | "travel"
+  | "knowledge";
 
 export interface SearchResultItem {
   id: string;
-  category: "documents" | "reminders" | "payments" | "expenses" | "vehicles" | "subscriptions" | "dates";
+  category:
+    | "documents"
+    | "reminders"
+    | "payments"
+    | "expenses"
+    | "vehicles"
+    | "subscriptions"
+    | "dates"
+    | "planner"
+    | "inventory"
+    | "family"
+    | "wellness"
+    | "travel"
+    | "knowledge";
   categoryLabel: string;
   title: string;
   subtitle: string;
@@ -41,6 +60,12 @@ export interface GlobalSearchResponse {
     vehicles: SearchResultItem[];
     subscriptions: SearchResultItem[];
     dates: SearchResultItem[];
+    planner: SearchResultItem[];
+    inventory: SearchResultItem[];
+    family: SearchResultItem[];
+    wellness: SearchResultItem[];
+    travel: SearchResultItem[];
+    knowledge: SearchResultItem[];
   };
   results: {
     documents: SearchResultItem[];
@@ -50,6 +75,12 @@ export interface GlobalSearchResponse {
     vehicles: SearchResultItem[];
     subscriptions: SearchResultItem[];
     dates: SearchResultItem[];
+    planner: SearchResultItem[];
+    inventory: SearchResultItem[];
+    family: SearchResultItem[];
+    wellness: SearchResultItem[];
+    travel: SearchResultItem[];
+    knowledge: SearchResultItem[];
   };
   items: SearchResultItem[];
 }
@@ -60,18 +91,24 @@ export async function executeGlobalSearch(
   selectedCategory: SearchCategory = "all"
 ): Promise<GlobalSearchResponse> {
   const query = (rawQuery || "").trim().toLowerCase();
-  
-  if (!query) {
-    const emptyGrouped = {
-      documents: [],
-      reminders: [],
-      payments: [],
-      expenses: [],
-      vehicles: [],
-      subscriptions: [],
-      dates: [],
-    };
 
+  const emptyGrouped = {
+    documents: [],
+    reminders: [],
+    payments: [],
+    expenses: [],
+    vehicles: [],
+    subscriptions: [],
+    dates: [],
+    planner: [],
+    inventory: [],
+    family: [],
+    wellness: [],
+    travel: [],
+    knowledge: [],
+  };
+
+  if (!query) {
     return {
       query: "",
       total: 0,
@@ -85,6 +122,12 @@ export async function executeGlobalSearch(
         vehicles: 0,
         subscriptions: 0,
         dates: 0,
+        planner: 0,
+        inventory: 0,
+        family: 0,
+        wellness: 0,
+        travel: 0,
+        knowledge: 0,
       },
       grouped: emptyGrouped,
       results: emptyGrouped,
@@ -92,7 +135,7 @@ export async function executeGlobalSearch(
     };
   }
 
-  // Multi-tenant safe parallel queries
+  // Multi-tenant safe parallel queries strictly scoped to authenticated userId
   const [
     docs,
     reminders,
@@ -101,6 +144,13 @@ export async function executeGlobalSearch(
     vehicles,
     subscriptions,
     dates,
+    plannerTasks,
+    inventoryItems,
+    familyEvents,
+    familyTasks,
+    habits,
+    trips,
+    knowledgeNotes,
   ] = await Promise.all([
     // 1. Documents
     prisma.document.findMany({
@@ -136,6 +186,41 @@ export async function executeGlobalSearch(
     prisma.importantDate.findMany({
       where: { userId },
       orderBy: { eventDate: "asc" },
+    }),
+    // 8. Planner Tasks & Appointments
+    prisma.plannerTask.findMany({
+      where: { userId },
+      orderBy: { date: "asc" },
+    }),
+    // 9. Home Inventory Items
+    prisma.inventoryItem.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+    }),
+    // 10. Family Events
+    prisma.familyEvent.findMany({
+      where: { userId },
+      orderBy: { eventDate: "asc" },
+    }),
+    // 11. Family Tasks
+    prisma.familyTask.findMany({
+      where: { userId },
+      orderBy: { dueDate: "asc" },
+    }),
+    // 12. Habits
+    prisma.habit.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+    }),
+    // 13. Trips
+    prisma.trip.findMany({
+      where: { userId },
+      orderBy: { startDate: "asc" },
+    }),
+    // 14. Knowledge Notes
+    prisma.knowledgeNote.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
     }),
   ]);
 
@@ -178,23 +263,20 @@ export async function executeGlobalSearch(
     const catMatch = rem.category?.toLowerCase().includes(query) ?? false;
 
     if (titleMatch || descMatch || catMatch) {
-      const isCompleted = rem.status === "completed";
-      const isPast = new Date(rem.dueDate) < new Date() && !isCompleted;
-      const badgeVariant: SearchResultItem["badgeVariant"] = isCompleted
-        ? "success"
-        : isPast
-        ? "danger"
-        : "info";
+      let variant: SearchResultItem["badgeVariant"] = "default";
+      if (rem.priority === "critical") variant = "danger";
+      else if (rem.priority === "high") variant = "warning";
+      else if (rem.status === "completed") variant = "success";
 
       matchedReminders.push({
         id: rem.id,
         category: "reminders",
         categoryLabel: "Reminders",
         title: rem.title,
-        subtitle: `${rem.category || "General"}${rem.description ? ` • ${rem.description}` : ""}`,
+        subtitle: `${rem.category} • Priority: ${rem.priority}`,
         date: `Due: ${new Date(rem.dueDate).toLocaleDateString()}`,
-        badgeText: isCompleted ? "Completed" : isPast ? "Overdue" : "Pending",
-        badgeVariant,
+        badgeText: rem.status.toUpperCase(),
+        badgeVariant: variant,
         url: `/reminders`,
         matchedField: titleMatch ? "title" : descMatch ? "description" : "category",
       });
@@ -203,31 +285,31 @@ export async function executeGlobalSearch(
 
   // Match and map payments
   const matchedPayments: SearchResultItem[] = [];
-  for (const pay of payments) {
-    const titleMatch = pay.title.toLowerCase().includes(query);
-    const payeeMatch = pay.payee?.toLowerCase().includes(query) ?? false;
-    const catMatch = pay.category?.toLowerCase().includes(query) ?? false;
-    const notesMatch = pay.notes?.toLowerCase().includes(query) ?? false;
+  for (const p of payments) {
+    const titleMatch = p.title.toLowerCase().includes(query);
+    const payeeMatch = p.payee?.toLowerCase().includes(query) ?? false;
+    const notesMatch = p.notes?.toLowerCase().includes(query) ?? false;
+    const catMatch = p.category.toLowerCase().includes(query);
 
-    if (titleMatch || payeeMatch || catMatch || notesMatch) {
-      const status = calculatePaymentStatus(pay.dueDate, pay.isPaid);
-      let variant: SearchResultItem["badgeVariant"] = "success";
-      if (status === "Overdue") variant = "danger";
-      else if (status === "Due Today") variant = "warning";
-      else if (status === "Upcoming") variant = "info";
+    if (titleMatch || payeeMatch || notesMatch || catMatch) {
+      const pStatus = calculatePaymentStatus(p.dueDate, p.isPaid);
+      let variant: SearchResultItem["badgeVariant"] = "info";
+      if (pStatus === "Paid") variant = "success";
+      else if (pStatus === "Overdue") variant = "danger";
+      else if (pStatus === "Due Today") variant = "warning";
 
       matchedPayments.push({
-        id: pay.id,
+        id: p.id,
         category: "payments",
-        categoryLabel: "Payments",
-        title: pay.title,
-        subtitle: `${pay.category}${pay.payee ? ` • Payee: ${pay.payee}` : ""}`,
-        amount: `${pay.currency} ${pay.amount.toFixed(2)}`,
-        date: `Due: ${new Date(pay.dueDate).toLocaleDateString()}`,
-        badgeText: status,
+        categoryLabel: "Bills & Payments",
+        title: p.title,
+        subtitle: `${p.payee ? `${p.payee} • ` : ""}${p.category}`,
+        amount: `${p.currency} ${p.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+        date: `Due: ${new Date(p.dueDate).toLocaleDateString()}`,
+        badgeText: pStatus,
         badgeVariant: variant,
-        url: `/finance?tab=payments`,
-        matchedField: titleMatch ? "title" : payeeMatch ? "payee" : catMatch ? "category" : "notes",
+        url: `/finance`,
+        matchedField: titleMatch ? "title" : payeeMatch ? "payee" : "category",
       });
     }
   }
@@ -237,102 +319,276 @@ export async function executeGlobalSearch(
   for (const exp of expenses) {
     const titleMatch = exp.title.toLowerCase().includes(query);
     const catMatch = exp.category.toLowerCase().includes(query);
-    const methodMatch = exp.paymentMethod?.toLowerCase().includes(query) ?? false;
+    const merchantMatch = exp.merchant?.toLowerCase().includes(query) ?? false;
     const notesMatch = exp.notes?.toLowerCase().includes(query) ?? false;
 
-    if (titleMatch || catMatch || methodMatch || notesMatch) {
+    if (titleMatch || catMatch || merchantMatch || notesMatch) {
       matchedExpenses.push({
         id: exp.id,
         category: "expenses",
         categoryLabel: "Expenses",
         title: exp.title,
-        subtitle: `${exp.category} • ${exp.paymentMethod || "Other"}`,
-        amount: `${exp.currency} ${exp.amount.toFixed(2)}`,
+        subtitle: `${exp.merchant ? `${exp.merchant} • ` : ""}${exp.category}`,
+        amount: `${exp.currency} ${exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
         date: new Date(exp.spentAt).toLocaleDateString(),
-        badgeText: exp.category,
+        badgeText: exp.category.toUpperCase(),
         badgeVariant: "default",
-        url: `/finance?tab=expenses`,
-        matchedField: titleMatch ? "description" : catMatch ? "category" : methodMatch ? "payment method" : "notes",
+        url: `/finance`,
+        matchedField: titleMatch ? "title" : merchantMatch ? "merchant" : "category",
       });
     }
   }
 
   // Match and map vehicles
   const matchedVehicles: SearchResultItem[] = [];
-  for (const veh of vehicles) {
-    const nameMatch = veh.name.toLowerCase().includes(query);
-    const makeMatch = veh.make?.toLowerCase().includes(query) ?? false;
-    const modelMatch = veh.model?.toLowerCase().includes(query) ?? false;
-    const plateMatch = veh.licensePlate?.toLowerCase().includes(query) ?? false;
-    const vinMatch = veh.vin?.toLowerCase().includes(query) ?? false;
-    const notesMatch = veh.notes?.toLowerCase().includes(query) ?? false;
+  for (const v of vehicles) {
+    const nameMatch = v.name.toLowerCase().includes(query);
+    const makeMatch = v.make?.toLowerCase().includes(query) ?? false;
+    const modelMatch = v.model?.toLowerCase().includes(query) ?? false;
+    const plateMatch = v.licensePlate?.toLowerCase().includes(query) ?? false;
+    const notesMatch = v.notes?.toLowerCase().includes(query) ?? false;
 
-    if (nameMatch || makeMatch || modelMatch || plateMatch || vinMatch || notesMatch) {
-      const summary = calculateVehicleStatus(veh);
-      const hasAlerts = summary.alerts.length > 0;
-      const subtitle = [veh.year, veh.make, veh.model].filter(Boolean).join(" ") + (veh.licensePlate ? ` • ${veh.licensePlate}` : "");
+    if (nameMatch || makeMatch || modelMatch || plateMatch || notesMatch) {
+      const vStatus = calculateVehicleStatus(v);
+      let variant: SearchResultItem["badgeVariant"] = "success";
+      let badgeText = "VALID";
+      if (vStatus.alerts.length > 0) {
+        const topAlert = vStatus.alerts[0];
+        badgeText = topAlert.urgency.toUpperCase();
+        if (topAlert.urgency === "urgent") variant = "danger";
+        else if (topAlert.urgency === "warning") variant = "warning";
+        else variant = "info";
+      }
 
       matchedVehicles.push({
-        id: veh.id,
+        id: v.id,
         category: "vehicles",
         categoryLabel: "Vehicles",
-        title: veh.name,
-        subtitle: subtitle || "Vehicle details",
-        date: `Mileage: ${(veh.mileage || 0).toLocaleString()} km`,
-        badgeText: hasAlerts ? `${summary.alerts.length} Alert${summary.alerts.length > 1 ? "s" : ""}` : "Good Standing",
-        badgeVariant: hasAlerts ? "danger" : "success",
+        title: v.name,
+        subtitle: `${v.year ? `${v.year} ` : ""}${v.make || ""} ${v.model || ""}${v.licensePlate ? ` • ${v.licensePlate}` : ""}`.trim(),
+        badgeText,
+        badgeVariant: variant,
         url: `/more/vehicles`,
-        matchedField: nameMatch ? "name" : plateMatch ? "license plate" : makeMatch ? "make/model" : "details",
+        matchedField: nameMatch ? "name" : plateMatch ? "plate" : "model",
       });
     }
   }
 
   // Match and map subscriptions
   const matchedSubs: SearchResultItem[] = [];
-  for (const sub of subscriptions) {
-    const nameMatch = sub.name.toLowerCase().includes(query);
-    const catMatch = sub.category.toLowerCase().includes(query);
-    const cycleMatch = sub.billingCycle.toLowerCase().includes(query);
-    const notesMatch = sub.notes?.toLowerCase().includes(query) ?? false;
+  for (const s of subscriptions) {
+    const nameMatch = s.name.toLowerCase().includes(query);
+    const catMatch = s.category.toLowerCase().includes(query);
+    const notesMatch = s.notes?.toLowerCase().includes(query) ?? false;
 
-    if (nameMatch || catMatch || cycleMatch || notesMatch) {
-      const isCancelled = sub.renewalStatus === "cancelled";
+    if (nameMatch || catMatch || notesMatch) {
+      let variant: SearchResultItem["badgeVariant"] = "default";
+      if (s.renewalStatus === "active") variant = "success";
+      else if (s.renewalStatus === "cancelled") variant = "outline";
+      else if (s.renewalStatus === "trial") variant = "warning";
+
       matchedSubs.push({
-        id: sub.id,
+        id: s.id,
         category: "subscriptions",
         categoryLabel: "Subscriptions",
-        title: sub.name,
-        subtitle: `${sub.category} • ${sub.billingCycle}`,
-        amount: `${sub.currency} ${sub.cost.toFixed(2)}/${sub.billingCycle}`,
-        date: `Renews: ${new Date(sub.nextBillingDate).toLocaleDateString()}`,
-        badgeText: isCancelled ? "Cancelled" : "Active",
-        badgeVariant: isCancelled ? "outline" : "success",
+        title: s.name,
+        subtitle: `${s.category} • ${s.billingCycle}`,
+        amount: `${s.currency} ${s.cost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+        date: `Next: ${new Date(s.nextBillingDate).toLocaleDateString()}`,
+        badgeText: s.renewalStatus.toUpperCase(),
+        badgeVariant: variant,
         url: `/subscriptions`,
-        matchedField: nameMatch ? "name" : catMatch ? "category" : "cycle",
+        matchedField: nameMatch ? "name" : "category",
       });
     }
   }
 
   // Match and map important dates
   const matchedDates: SearchResultItem[] = [];
-  for (const dateItem of dates) {
-    const titleMatch = dateItem.title.toLowerCase().includes(query);
-    const catMatch = dateItem.category.toLowerCase().includes(query);
-    const notesMatch = dateItem.notes?.toLowerCase().includes(query) ?? false;
+  for (const d of dates) {
+    const titleMatch = d.title.toLowerCase().includes(query);
+    const catMatch = d.category.toLowerCase().includes(query);
+    const notesMatch = d.notes?.toLowerCase().includes(query) ?? false;
 
     if (titleMatch || catMatch || notesMatch) {
-      const computed = calculateNextDateOccurrence(dateItem.eventDate, dateItem.recurrence);
+      const nextOccur = calculateNextDateOccurrence(d.eventDate, d.recurrence);
       matchedDates.push({
-        id: dateItem.id,
+        id: d.id,
         category: "dates",
         categoryLabel: "Important Dates",
-        title: dateItem.title,
-        subtitle: `${dateItem.category}${computed.yearsCount ? ` (${computed.yearsCount} yrs)` : ""} • ${computed.label}`,
-        date: `Next: ${new Date(computed.nextOccurrence).toLocaleDateString()}`,
-        badgeText: `${computed.daysRemaining} days left`,
-        badgeVariant: computed.daysRemaining <= 7 ? "warning" : "info",
+        title: d.title,
+        subtitle: `${d.category} • ${d.recurrence}`,
+        date: nextOccur
+          ? `Next: ${new Date(nextOccur.nextOccurrence).toLocaleDateString()} (${nextOccur.daysRemaining === 0 ? "today" : `${nextOccur.daysRemaining}d`})`
+          : new Date(d.eventDate).toLocaleDateString(),
+        badgeText: nextOccur?.isToday ? "TODAY" : d.category.toUpperCase(),
+        badgeVariant: nextOccur?.isToday ? "danger" : "default",
         url: `/more/dates`,
-        matchedField: titleMatch ? "title" : catMatch ? "category" : "notes",
+        matchedField: titleMatch ? "title" : "category",
+      });
+    }
+  }
+
+  // Match and map planner tasks
+  const matchedPlanner: SearchResultItem[] = [];
+  for (const task of plannerTasks) {
+    const titleMatch = task.title.toLowerCase().includes(query);
+    const descMatch = task.description?.toLowerCase().includes(query) ?? false;
+    const locMatch = task.location?.toLowerCase().includes(query) ?? false;
+    const catMatch = task.category.toLowerCase().includes(query);
+    const notesMatch = task.notes?.toLowerCase().includes(query) ?? false;
+
+    if (titleMatch || descMatch || locMatch || catMatch || notesMatch) {
+      matchedPlanner.push({
+        id: task.id,
+        category: "planner",
+        categoryLabel: "Daily Planner",
+        title: task.title,
+        subtitle: `${task.itemType === "appointment" ? "Appointment" : "Task"} • ${task.category}${task.location ? ` • ${task.location}` : ""}`,
+        date: new Date(task.date).toLocaleDateString(),
+        badgeText: task.isCompleted ? "COMPLETED" : task.priority.toUpperCase(),
+        badgeVariant: task.isCompleted ? "success" : task.priority === "urgent" || task.priority === "high" ? "danger" : "default",
+        url: `/planner`,
+        matchedField: titleMatch ? "title" : locMatch ? "location" : "category",
+      });
+    }
+  }
+
+  // Match and map home inventory items (Note: serial numbers NOT exposed in subtitles)
+  const matchedInventory: SearchResultItem[] = [];
+  for (const item of inventoryItems) {
+    const nameMatch = item.name.toLowerCase().includes(query);
+    const brandMatch = item.brand?.toLowerCase().includes(query) ?? false;
+    const modelMatch = item.modelNumber?.toLowerCase().includes(query) ?? false;
+    const serialMatch = item.serialNumber?.toLowerCase().includes(query) ?? false;
+    const locMatch = item.location?.toLowerCase().includes(query) ?? false;
+    const catMatch = item.category.toLowerCase().includes(query);
+
+    if (nameMatch || brandMatch || modelMatch || serialMatch || locMatch || catMatch) {
+      matchedInventory.push({
+        id: item.id,
+        category: "inventory",
+        categoryLabel: "Home Inventory",
+        title: item.name,
+        subtitle: `${item.category}${item.brand ? ` • ${item.brand}` : ""}${item.location ? ` • In ${item.location}` : ""}`,
+        date: item.warrantyExpiry ? `Warranty: ${new Date(item.warrantyExpiry).toLocaleDateString()}` : undefined,
+        amount: item.purchasePrice ? `${item.currency} ${item.purchasePrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : undefined,
+        badgeText: item.isArchived ? "ARCHIVED" : item.category.toUpperCase(),
+        badgeVariant: item.isArchived ? "outline" : "info",
+        url: `/inventory`,
+        matchedField: nameMatch ? "name" : brandMatch ? "brand" : modelMatch ? "model" : "category",
+      });
+    }
+  }
+
+  // Match and map family events and tasks
+  const matchedFamily: SearchResultItem[] = [];
+  for (const fe of familyEvents) {
+    const titleMatch = fe.title.toLowerCase().includes(query);
+    const descMatch = fe.description?.toLowerCase().includes(query) ?? false;
+    const locMatch = fe.location?.toLowerCase().includes(query) ?? false;
+    const catMatch = fe.category.toLowerCase().includes(query);
+
+    if (titleMatch || descMatch || locMatch || catMatch) {
+      matchedFamily.push({
+        id: fe.id,
+        category: "family",
+        categoryLabel: "Family Event",
+        title: fe.title,
+        subtitle: `Event • ${fe.category}${fe.location ? ` • ${fe.location}` : ""}`,
+        date: new Date(fe.eventDate).toLocaleDateString(),
+        badgeText: "FAMILY",
+        badgeVariant: "info",
+        url: `/more/family`,
+        matchedField: titleMatch ? "title" : locMatch ? "location" : "category",
+      });
+    }
+  }
+  for (const ft of familyTasks) {
+    const titleMatch = ft.title.toLowerCase().includes(query);
+    const descMatch = ft.description?.toLowerCase().includes(query) ?? false;
+    const memberMatch = ft.assignedMemberName?.toLowerCase().includes(query) ?? false;
+    const catMatch = ft.category.toLowerCase().includes(query);
+
+    if (titleMatch || descMatch || memberMatch || catMatch) {
+      matchedFamily.push({
+        id: ft.id,
+        category: "family",
+        categoryLabel: "Family Task",
+        title: ft.title,
+        subtitle: `Task • ${ft.category}${ft.assignedMemberName ? ` • Assigned to ${ft.assignedMemberName}` : ""}`,
+        date: ft.dueDate ? `Due: ${new Date(ft.dueDate).toLocaleDateString()}` : undefined,
+        badgeText: ft.isCompleted ? "DONE" : ft.priority.toUpperCase(),
+        badgeVariant: ft.isCompleted ? "success" : "warning",
+        url: `/more/family`,
+        matchedField: titleMatch ? "title" : memberMatch ? "member" : "category",
+      });
+    }
+  }
+
+  // Match and map habits
+  const matchedWellness: SearchResultItem[] = [];
+  for (const h of habits) {
+    const titleMatch = h.title.toLowerCase().includes(query);
+    const descMatch = h.description?.toLowerCase().includes(query) ?? false;
+    const catMatch = h.category.toLowerCase().includes(query);
+
+    if (titleMatch || descMatch || catMatch) {
+      matchedWellness.push({
+        id: h.id,
+        category: "wellness",
+        categoryLabel: "Habits & Wellness",
+        title: h.title,
+        subtitle: `${h.frequency} • ${h.category}${h.currentStreak > 0 ? ` • 🔥 ${h.currentStreak} day streak` : ""}`,
+        badgeText: `${h.currentStreak} STREAK`,
+        badgeVariant: h.currentStreak > 0 ? "success" : "default",
+        url: `/wellness`,
+        matchedField: titleMatch ? "title" : "category",
+      });
+    }
+  }
+
+  // Match and map trips (Note: booking references masked, never shown raw in subtitles)
+  const matchedTravel: SearchResultItem[] = [];
+  for (const trip of trips) {
+    const titleMatch = trip.title.toLowerCase().includes(query);
+    const destMatch = trip.destination.toLowerCase().includes(query);
+    const notesMatch = trip.notes?.toLowerCase().includes(query) ?? false;
+
+    if (titleMatch || destMatch || notesMatch) {
+      matchedTravel.push({
+        id: trip.id,
+        category: "travel",
+        categoryLabel: "Travel & Trips",
+        title: trip.title,
+        subtitle: `${trip.destination} • Status: ${trip.status}`,
+        date: `${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`,
+        badgeText: trip.status.toUpperCase(),
+        badgeVariant: trip.status === "active" ? "success" : trip.status === "completed" ? "outline" : "info",
+        url: `/travel`,
+        matchedField: titleMatch ? "title" : "destination",
+      });
+    }
+  }
+
+  // Match and map knowledge notes
+  const matchedKnowledge: SearchResultItem[] = [];
+  for (const note of knowledgeNotes) {
+    const titleMatch = note.title.toLowerCase().includes(query);
+    const contentMatch = note.content.toLowerCase().includes(query);
+    const tagsMatch = note.tags?.toLowerCase().includes(query) ?? false;
+
+    if (titleMatch || contentMatch || tagsMatch) {
+      matchedKnowledge.push({
+        id: note.id,
+        category: "knowledge",
+        categoryLabel: "Knowledge Wallet",
+        title: note.title,
+        subtitle: `${note.tags ? `Tags: ${note.tags} • ` : ""}${note.content.slice(0, 50)}...`,
+        badgeText: note.isPinned ? "PINNED" : note.isFavorite ? "FAVORITE" : "NOTE",
+        badgeVariant: note.isPinned ? "warning" : "default",
+        url: `/knowledge`,
+        matchedField: titleMatch ? "title" : tagsMatch ? "tags" : "content",
       });
     }
   }
@@ -345,7 +601,13 @@ export async function executeGlobalSearch(
       matchedExpenses.length +
       matchedVehicles.length +
       matchedSubs.length +
-      matchedDates.length,
+      matchedDates.length +
+      matchedPlanner.length +
+      matchedInventory.length +
+      matchedFamily.length +
+      matchedWellness.length +
+      matchedTravel.length +
+      matchedKnowledge.length,
     documents: matchedDocs.length,
     reminders: matchedReminders.length,
     payments: matchedPayments.length,
@@ -353,6 +615,12 @@ export async function executeGlobalSearch(
     vehicles: matchedVehicles.length,
     subscriptions: matchedSubs.length,
     dates: matchedDates.length,
+    planner: matchedPlanner.length,
+    inventory: matchedInventory.length,
+    family: matchedFamily.length,
+    wellness: matchedWellness.length,
+    travel: matchedTravel.length,
+    knowledge: matchedKnowledge.length,
   };
 
   const grouped = {
@@ -363,6 +631,12 @@ export async function executeGlobalSearch(
     vehicles: matchedVehicles,
     subscriptions: matchedSubs,
     dates: matchedDates,
+    planner: matchedPlanner,
+    inventory: matchedInventory,
+    family: matchedFamily,
+    wellness: matchedWellness,
+    travel: matchedTravel,
+    knowledge: matchedKnowledge,
   };
 
   let items: SearchResultItem[] = [];
@@ -375,6 +649,12 @@ export async function executeGlobalSearch(
       ...matchedVehicles,
       ...matchedSubs,
       ...matchedDates,
+      ...matchedPlanner,
+      ...matchedInventory,
+      ...matchedFamily,
+      ...matchedWellness,
+      ...matchedTravel,
+      ...matchedKnowledge,
     ];
   } else {
     items = grouped[selectedCategory] || [];

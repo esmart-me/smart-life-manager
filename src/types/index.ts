@@ -85,6 +85,8 @@ export interface UserSettingsDTO {
   reminderDaysBefore: number;
   weeklyDigest: boolean;
   securityAlerts: boolean;
+  dailyBriefingEnabled?: boolean;
+  dailyBriefingTime?: string;
 }
 
 export interface UserProfileDTO {
@@ -95,4 +97,67 @@ export interface UserProfileDTO {
   timezone: string;
   currency: string;
   locale: string;
+}
+
+// Daily Life Planner Task / Appointment DTO
+export interface PlannerTaskDTO {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string | null;
+  itemType: "task" | "appointment";
+  date: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  location?: string | null;
+  priority: "low" | "medium" | "high" | "urgent";
+  category: "work" | "personal" | "health" | "family" | "errand" | "appointment";
+  isCompleted: boolean;
+  completedAt?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Home Inventory & Warranty DTO
+export interface InventoryItemDTO {
+  id: string;
+  userId: string;
+  name: string;
+  category: string;
+  brand?: string | null;
+  modelNumber?: string | null;
+  serialNumber?: string | null;
+  purchaseDate?: string | null;
+  purchasePrice?: number | null;
+  currency: string;
+  retailer?: string | null;
+  location?: string | null;
+  warrantyStart?: string | null;
+  warrantyExpiry?: string | null;
+  warrantyNotes?: string | null;
+  receiptUrl?: string | null;
+  photoUrl?: string | null;
+  notes?: string | null;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  serviceLogs?: InventoryServiceLogDTO[];
+  warrantyStatus?: "active" | "expiring_soon" | "expired" | "unknown";
+  daysUntilWarrantyExpiry?: number | null;
+}
+
+export interface InventoryServiceLogDTO {
+  id: string;
+  inventoryItemId: string;
+  userId: string;
+  serviceDate: string;
+  description: string;
+  provider?: string | null;
+  cost?: number | null;
+  currency: string;
+  nextServiceDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
