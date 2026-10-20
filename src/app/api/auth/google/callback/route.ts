@@ -23,7 +23,11 @@ import { hashPassword } from "@/lib/auth/password";
 
 export const dynamic = "force-dynamic";
 
-function renderDesktopSuccessPage(): Response {
+function renderDesktopSuccessPage(csrf?: string, ticket?: string): Response {
+  const returnDeepLink = csrf
+    ? `smartlifemanager://auth-callback?status=success&csrf=${encodeURIComponent(csrf)}&ticket=${encodeURIComponent(ticket || "")}`
+    : "smartlifemanager://auth-callback";
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,9 +100,15 @@ function renderDesktopSuccessPage(): Response {
 <body>
   <div class="card">
     <div class="icon">✓</div>
-    <div class="badge">Desktop Authentication</div>
+    <div class="badge">Authentication Successful</div>
     <h1>Authentication Successful</h1>
-    <p>Your Google account has been verified. You may now close this browser tab and return to the <strong>Smart Life Manager</strong> desktop application.</p>
+    <p>Your Google account has been verified. You may now return to the <strong>Smart Life Manager</strong> application.</p>
+    <a href="${returnDeepLink}" id="returnBtn" style="display:inline-block;background:#10b981;color:#ffffff;font-size:14px;font-weight:600;padding:12px 24px;border-radius:12px;text-decoration:none;margin-top:8px;box-shadow:0 4px 14px rgba(16,185,129,0.35);transition:all 0.15s ease;">Open Smart Life Manager</a>
+    <script>
+      try {
+        window.location.href = "${returnDeepLink}";
+      } catch (e) {}
+    </script>
   </div>
 </body>
 </html>`;
@@ -312,9 +322,9 @@ export async function GET(request: Request) {
     // -------------------------------------------------------------
     if (isDesktop) {
       // Create single-use 30-second ticket indexed by state CSRF
-      createDesktopAuthTicket(stateData.csrf, token);
-      console.log("[Google OAuth] Desktop authentication ticket created for CSRF state.");
-      return renderDesktopSuccessPage();
+      const ticket = createDesktopAuthTicket(stateData.csrf, token);
+      console.log("[Google OAuth] Desktop/Native authentication ticket created for CSRF state.");
+      return renderDesktopSuccessPage(stateData.csrf, ticket);
     }
 
     // -------------------------------------------------------------

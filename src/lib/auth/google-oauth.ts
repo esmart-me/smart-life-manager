@@ -51,7 +51,10 @@ function ensureEnvLoaded(): void {
 export function getGoogleClientId(isDesktop = false): string {
   ensureEnvLoaded();
   if (isDesktop && process.env.GOOGLE_DESKTOP_CLIENT_ID?.trim()) {
-    return cleanEnvValue(process.env.GOOGLE_DESKTOP_CLIENT_ID);
+    const candidate = cleanEnvValue(process.env.GOOGLE_DESKTOP_CLIENT_ID);
+    if (candidate.includes(".apps.googleusercontent.com") && !candidate.includes("@")) {
+      return candidate;
+    }
   }
   return cleanEnvValue(process.env.GOOGLE_CLIENT_ID);
 }
@@ -61,8 +64,12 @@ export function getGoogleClientId(isDesktop = false): string {
  */
 export function getGoogleClientSecret(isDesktop = false): string {
   ensureEnvLoaded();
+  const clientId = getGoogleClientId(isDesktop);
   if (isDesktop && process.env.GOOGLE_DESKTOP_CLIENT_SECRET?.trim()) {
-    return cleanEnvValue(process.env.GOOGLE_DESKTOP_CLIENT_SECRET);
+    const desktopCandidate = cleanEnvValue(process.env.GOOGLE_DESKTOP_CLIENT_ID);
+    if (clientId === desktopCandidate && !desktopCandidate.includes("@")) {
+      return cleanEnvValue(process.env.GOOGLE_DESKTOP_CLIENT_SECRET);
+    }
   }
   return cleanEnvValue(process.env.GOOGLE_CLIENT_SECRET);
 }
@@ -76,6 +83,8 @@ export function isGoogleOAuthConfigured(isDesktop = false): boolean {
   return Boolean(
     clientId &&
     clientId.length > 5 &&
+    clientId.includes(".apps.googleusercontent.com") &&
+    !clientId.includes("@") &&
     !clientId.includes("your-client-id") &&
     (!clientSecret || !clientSecret.includes("your-client-secret"))
   );
@@ -85,20 +94,40 @@ export function isGoogleOAuthConfigured(isDesktop = false): boolean {
  * Determines the canonical base URL of the running application.
  */
 export function getAppBaseUrl(req?: Request): string {
-  if (process.env.NEXT_PUBLIC_APP_URL?.trim()) {
-    return process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, "");
-  }
-  if (process.env.APP_URL?.trim()) {
+  // 1. If explicitly configured with a non-localhost canonical production URL, prioritize it
+  if (
+    process.env.APP_URL?.trim() &&
+    !process.env.APP_URL.includes("localhost") &&
+    !process.env.APP_URL.includes("127.0.0.1")
+  ) {
     return process.env.APP_URL.trim().replace(/\/$/, "");
   }
+  if (
+    process.env.NEXT_PUBLIC_APP_URL?.trim() &&
+    !process.env.NEXT_PUBLIC_APP_URL.includes("localhost") &&
+    !process.env.NEXT_PUBLIC_APP_URL.includes("127.0.0.1")
+  ) {
+    return process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, "");
+  }
 
+  // 2. If request is provided, inspect host header (supports incoming HTTPS and custom deployed domains)
   if (req) {
     try {
       const url = new URL(req.url);
       const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || url.host;
       const proto = req.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
-      return `${proto}://${host}`.replace(/\/$/, "");
+      if (host && !host.includes("localhost") && !host.includes("127.0.0.1")) {
+        return `${proto}://${host}`.replace(/\/$/, "");
+      }
     } catch {}
+  }
+
+  // 3. Fallback to configured environment URL (even if localhost for local development)
+  if (process.env.NEXT_PUBLIC_APP_URL?.trim()) {
+    return process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, "");
+  }
+  if (process.env.APP_URL?.trim()) {
+    return process.env.APP_URL.trim().replace(/\/$/, "");
   }
 
   return "http://localhost:3000";

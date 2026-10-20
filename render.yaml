@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: smart-life-manager
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx prisma db push --accept-data-loss=false && npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: 1
+      - key: DATABASE_URL
+        value: file:/var/data/prod.db
+      - key: STORAGE_DRIVER
+        value: local
+      - key: STORAGE_LOCAL_PATH
+        value: /var/data/storage
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NEXT_PUBLIC_APP_NAME
+        value: Smart Life Manager
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          type: web
+          name: smart-life-manager
+          property: host
+      - key: APP_URL
+        fromService:
+          type: web
+          name: smart-life-manager
+          property: host
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+    disk:
+      name: slm-persistent-data
+      mountPath: /var/data
+      sizeGB: 1
